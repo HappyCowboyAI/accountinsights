@@ -1,0 +1,66 @@
+{
+  "slug": "account_email_responsiveness",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a / b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_7_days", "last_14_days", "last_30_days", "this_quarter", "any_time"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"outbound": {"$eq": false}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_7_days", "last_14_days", "last_30_days", "this_quarter", "any_time"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"outbound": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    },
+    "meta": {
+      "drill_in_conf": {
+        "metric": "a",
+        "display_name": "Inbound Emails"
+      }
+    }
+  },
+  "display_name": "Email Responsiveness",
+  "description": "Ratio of inbound to outbound emails at the account level.",
+  "coaching_text": "Above 0.5 = two-way conversation. Below 0.3 = one-way prospecting.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "tier": 1,
+    "maps_to_insight": ["icp_fit_profiling", "relationship_health", "account_neglect"],
+    "best_fit_tables": ["Table 1: ICP Fit Profiling", "Table 2: Relationship Health", "Table 5: Account Neglect"]
+  }
+}

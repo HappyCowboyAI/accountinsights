@@ -1,0 +1,70 @@
+{
+  "slug": "account_executive_coverage",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "percentage",
+    "f": "100 * a / b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_14_days", "last_30_days", "this_quarter", "any_time"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}},
+                    {"participants.seniority": {"$in": ["Executive", "Vice President", "Director"]}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_14_days", "last_30_days", "this_quarter", "any_time"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    },
+    "meta": {
+      "drill_in_conf": {
+        "metric": "a",
+        "display_name": "Executive Activities"
+      }
+    }
+  },
+  "display_name": "Executive Coverage",
+  "description": "% of external activities involving Director, VP, or Executive-level contacts.",
+  "coaching_text": "Above 30% with no open opp = strategic conversation needs a deal.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "tier": 1,
+    "maps_to_insight": ["icp_fit_profiling", "relationship_health"],
+    "best_fit_tables": ["Table 1: ICP Fit Profiling", "Table 2: Relationship Health"]
+  }
+}
