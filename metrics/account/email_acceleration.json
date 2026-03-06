@@ -1,0 +1,60 @@
+{
+  "slug": "account_email_acceleration",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "4.286 * a / b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_7_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"outbound": {"$eq": false}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"outbound": {"$eq": false}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Email Acceleration",
+  "description": "Ratio of 7-day to 30-day inbound email frequency, normalized. Above 1.0 = inbound email accelerating.",
+  "coaching_text": "Above 1.5 = surge in inbound interest. 0.8-1.2 = steady. Below 0.5 = going quiet.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "tier": 1,
+    "maps_to_insight": ["engagement_momentum"],
+    "best_fit_tables": ["Table 3: Engagement Momentum"]
+  }
+}

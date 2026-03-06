@@ -1,0 +1,47 @@
+{
+  "slug": "account_stakeholder_breadth",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a / 4.3",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count_distinct",
+        "count_distinct_field": "participants.email",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Stakeholder Breadth",
+  "description": "Unique external contacts engaged per week (30-day average) at the account level.",
+  "coaching_text": "Below 1.0/week = thin relationship. 1.0-3.0 = healthy. Above 3.0 = broad multi-threaded engagement.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "tier": 1,
+    "maps_to_insight": ["relationship_health", "icp_fit_profiling"],
+    "best_fit_tables": ["Table 2: Relationship Health", "Table 1: ICP Fit Profiling"]
+  }
+}
