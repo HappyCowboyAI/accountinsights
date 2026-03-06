@@ -1,0 +1,58 @@
+{
+  "slug": "account_activity_revenue_ratio",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a + b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "meeting"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Activity Intensity",
+  "description": "Total external meetings + emails in last 30 days. Used as a proxy for activity-to-revenue comparison — high activity on small accounts signals expansion potential. Revenue normalization done in SalesAI signal layer.",
+  "coaching_text": "Compare against account revenue tier. High intensity on small accounts = expansion signal. Low intensity on large accounts = coverage gap.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "tier": 1,
+    "maps_to_insight": ["whitespace_expansion", "account_neglect"],
+    "best_fit_tables": ["Table 4: Whitespace & Expansion", "Table 5: Account Neglect"]
+  }
+}
