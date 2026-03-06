@@ -109,8 +109,20 @@ The n8n workflow in `n8n/workflows/` implements the `/account-insights` Slack sl
 
 ## Confluence Documentation
 
-All design specs live in Confluence under the CS space:
-- Links to be populated as pages are created
+All design specs live in Confluence under the CS space (spaceId: 14057473):
+
+| Page | ID | URL |
+|------|----|-----|
+| Account Insights - Launch Hub (parent) | 59406680089 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406680089) |
+| OOTB Metrics to Account Insights | 59406614550 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406614550) |
+| EDB Table Designs | 59406549076 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549076) |
+| EDB Dashboard Spec | 59406549097 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549097) |
+| SalesAI Signals for Account Insights | 59406549116 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549116) |
+| Custom Metrics Recommendations | 59406549135 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549135) |
+| Slack Bot Demo (/account-insights) | 59406680118 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406680118) |
+| How the Account Insights Dashboard Works | 59406581797 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406581797) |
+| Sales Enablement — Sales Leader Persona | 59406188590 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406188590) |
+| Sales Enablement — RevOps Persona | 59406352424 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406352424) |
 
 ## Required Credentials
 
