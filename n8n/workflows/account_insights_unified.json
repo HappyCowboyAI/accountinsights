@@ -1,0 +1,2426 @@
+{
+  "name": "Account Insights \u2014 Unified /ai Slack Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-bot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1000,
+        2000
+      ],
+      "id": "aa110001-0001-4a01-b001-c00100010001",
+      "name": "Slash Command Webhook",
+      "webhookId": "aa110001-0001-4b01-b001-c00100010002"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Slash Command Data - ROBUST VERSION\n * \n * n8n webhook nodes can put form-urlencoded POST data in different places:\n *   - $json.body (parsed object)\n *   - $json directly (top-level fields)\n *   - $json.body as a string (needs parsing)\n * \n * This code checks ALL possible locations with detailed logging.\n */\n\nconst webhookData = $('Slash Command Webhook').first().json;\n\nconsole.log('\ud83d\udce8 RAW WEBHOOK PAYLOAD:');\nconsole.log('   Top-level keys:', Object.keys(webhookData).join(', '));\n\nif (webhookData.body) {\n  console.log('   body type:', typeof webhookData.body);\n  if (typeof webhookData.body === 'object') {\n    console.log('   body keys:', Object.keys(webhookData.body).join(', '));\n  }\n}\n\nif (webhookData.headers) {\n  const ct = webhookData.headers['content-type'] || webhookData.headers['Content-Type'] || 'unknown';\n  console.log('   Content-Type:', ct);\n}\n\nfunction findField(fieldName) {\n  if (webhookData[fieldName] !== undefined && webhookData[fieldName] !== '') {\n    console.log(`   \u2705 ${fieldName} found at top-level: \"${webhookData[fieldName]}\"`);\n    return String(webhookData[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'object' && webhookData.body[fieldName] !== undefined) {\n    console.log(`   \u2705 ${fieldName} found in body: \"${webhookData.body[fieldName]}\"`);\n    return String(webhookData.body[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'string') {\n    const params = new URLSearchParams(webhookData.body);\n    const val = params.get(fieldName);\n    if (val) {\n      console.log(`   \u2705 ${fieldName} parsed from body string: \"${val}\"`);\n      return val;\n    }\n  }\n  if (webhookData.query && webhookData.query[fieldName]) {\n    console.log(`   \u2705 ${fieldName} found in query: \"${webhookData.query[fieldName]}\"`);\n    return String(webhookData.query[fieldName]);\n  }\n  if (webhookData.params && webhookData.params[fieldName]) {\n    console.log(`   \u2705 ${fieldName} found in params: \"${webhookData.params[fieldName]}\"`);\n    return String(webhookData.params[fieldName]);\n  }\n  console.log(`   \u274c ${fieldName} NOT FOUND in any location`);\n  return '';\n}\n\nconsole.log('\\n\ud83d\udd0d Searching for slash command fields:');\n\nconst userId = findField('user_id');\nconst userName = findField('user_name');\nconst channelId = findField('channel_id');\nconst channelName = findField('channel_name');\nconst responseUrl = findField('response_url');\nconst commandText = findField('text');\nconst teamDomain = findField('team_domain');\n\nconsole.log('\\n\ud83d\udcca EXTRACTED VALUES:');\nconsole.log(`   \ud83d\udc64 User: @${userName} (${userId})`);\nconsole.log(`   \ud83d\udcfa Channel: #${channelName} (${channelId})`);\nconsole.log(`   \ud83d\udd17 Response URL: ${responseUrl ? responseUrl.substring(0, 60) + '...' : 'MISSING'}`);\nconsole.log(`   \ud83d\udcdd Text: \"${commandText}\"`);\n\nif (!userId) {\n  console.error('\ud83d\udea8 CRITICAL: No user_id found! Full payload dump:');\n  console.error(JSON.stringify(webhookData, null, 2).substring(0, 2000));\n}\n\nreturn [{\n  json: {\n    userId,\n    userName,\n    channelId,\n    channelName,\n    responseUrl,\n    commandText,\n    teamDomain,\n    _raw: webhookData\n  }\n}];\n"
+      },
+      "id": "aa110001-0002-4a02-b002-c00100010003",
+      "name": "Extract Slash Command Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1224,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://slack.com/api/users.info?user={{ $json.userId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aa110001-0003-4a03-b003-c00100010004",
+      "name": "Get User Email from Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1448,
+        2000
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LluVuiMJ8NUbAiG7",
+          "name": "Slackbot Auth Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Merge User Context - ROBUST VERSION\n * Handles cases where email scope might be missing\n */\n\nconst slashData = $('Extract Slash Command Data').first().json;\nconst slackResponse = $input.first().json;\n\nconsole.log('\ud83d\udc64 Slack API Response keys:', Object.keys(slackResponse).join(', '));\nconsole.log('   ok:', slackResponse.ok);\n\nconst userObj = slackResponse.user || {};\nconst userProfile = userObj.profile || {};\nlet userEmail = userProfile.email || userObj.email || '';\n\nif (!userEmail && slackResponse.profile) {\n  userEmail = slackResponse.profile.email || '';\n}\n\nconst realName = userObj.real_name || userProfile.real_name || slashData.userName || 'there';\n\nconsole.log('\ud83d\udce7 Email extraction:');\nconsole.log('   user.profile.email:', userProfile.email || '(not present)');\nconsole.log('   user.email:', userObj.email || '(not present)');\nconsole.log('   Final email:', userEmail || '(NONE - bot may lack users:read.email scope)');\nconsole.log('   Real name:', realName);\nconsole.log('   Channel ID:', slashData.channelId);\nconsole.log('   Response URL:', slashData.responseUrl ? 'Present' : 'MISSING');\n\nif (!userEmail) {\n  console.warn('\u26a0\ufe0f No email found. Possible fixes:');\n  console.warn('   1. Add \"users:read.email\" scope to your Slack bot');\n  console.warn('   2. Reinstall the app after adding the scope');\n}\n\nreturn [{\n  json: {\n    userId: slashData.userId,\n    userName: slashData.userName,\n    realName: realName,\n    userEmail: userEmail,\n    channelId: slashData.channelId,\n    channelName: slashData.channelName,\n    responseUrl: slashData.responseUrl,\n    commandText: slashData.commandText,\n    teamDomain: slashData.teamDomain\n  }\n}];\n"
+      },
+      "id": "aa110001-0004-4a04-b004-c00100010005",
+      "name": "Merge User Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1672,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($json.commandText || '').trim().toLowerCase();\n\n// Parse subcommand and remaining args\nlet subcommand = 'digest';  // default\nlet args = '';\n\nif (text.startsWith('calibrate')) {\n  subcommand = 'calibrate';\n  args = text.replace(/^calibrate\\s*/, '').trim();\n} else if (text.startsWith('targets') || text.startsWith('target')) {\n  subcommand = 'targets';\n  args = text.replace(/^targets?\\s*/, '').trim();\n} else if (text.startsWith('help')) {\n  subcommand = 'help';\n} else if (text) {\n  // Anything else is treated as a region filter for the digest\n  subcommand = 'digest';\n  args = text;  // region name\n}\n\nreturn [{\n  json: {\n    ...($json),\n    subcommand,\n    args,\n    sales_region: subcommand === 'digest' ? \n      args.replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : ''\n  }\n}];\n"
+      },
+      "id": "aa110001-0005-4a05-b005-c00100010006",
+      "name": "Command Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1896,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-sw01-4a01-b001-c00100010001",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "digest",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Digest"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-sw02-4a02-b002-c00100010002",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "calibrate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Calibrate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-sw03-4a03-b003-c00100010003",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "targets",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Targets"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-sw04-4a04-b004-c00100010004",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Help"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "aa110001-0006-4a06-b006-c00100010007",
+      "name": "Route by Subcommand",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2120,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"response_type\": \"in_channel\",\n  \"text\": \"\ud83e\udd16 *Account Insights \u2014 /ai Commands*\\n\\n`/ai` \u2014 Run the full account insights digest (neglected, surging, expansion accounts)\\n`/ai <region>` \u2014 Run digest filtered by sales region (e.g., `/ai north america`)\\n`/ai calibrate` \u2014 Run ICP calibration: analyze closed-won vs closed-lost to extract your win pattern fingerprint\\n`/ai targets` \u2014 Surface unengaged accounts matching your ICP firmographic profile\\n`/ai help` \u2014 Show this help message\\n\\n_Powered by Account Insights \u2022 People.ai + Claude AI_\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "aa110001-0007-4a07-b007-c00100010008",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2344,
+        2600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Generate Ack Message based on subcommand\n */\nconst subcommand = $json.subcommand || 'digest';\nconst salesRegion = $json.sales_region || '';\n\nlet ackText = '';\n\nswitch (subcommand) {\n  case 'digest':\n    ackText = '\u23f3 Running Account Insights analysis (3 insight types: Neglected, Surging, Expansion)... This typically takes 2-4 minutes as I analyze account activity, detect engagement patterns, and identify opportunities. I\\'ll post the full report here when done!';\n    if (salesRegion) {\n      ackText += ` (filtered to ${salesRegion})`;\n    }\n    break;\n  case 'calibrate':\n    ackText = '\u23f3 Running ICP Calibration \u2014 analyzing 30 winners vs 30 losers + 15 MCP deep dives... This takes 3-5 minutes as I deep-dive accounts via MCP to extract your win pattern fingerprint.';\n    break;\n  case 'targets':\n    ackText = '\u23f3 Surfacing target accounts matching your ICP profile... This typically takes 1-2 minutes.';\n    break;\n  default:\n    ackText = '\u23f3 Processing your request...';\n}\n\nreturn [{\n  json: {\n    ...($json),\n    ackText\n  }\n}];\n"
+      },
+      "id": "aa110001-0008-4a08-b008-c00100010009",
+      "name": "Generate Ack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2344,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"response_type\": \"in_channel\",\n  \"text\": \"{{ $json.ackText }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "aa110001-0009-4a09-b009-c00100010010",
+      "name": "Acknowledge Slash Command",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2568,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "slack_channel",
+              "type": "string",
+              "value": "={{ $json.channelId }}",
+              "id": "aa110001-wp01-4a01-b001-c00100010001"
+            },
+            {
+              "name": "user_email",
+              "type": "string",
+              "value": "={{ $json.userEmail }}",
+              "id": "aa110001-wp02-4a02-b002-c00100010002"
+            },
+            {
+              "name": "user_name",
+              "type": "string",
+              "value": "={{ $json.realName }}",
+              "id": "aa110001-wp03-4a03-b003-c00100010003"
+            },
+            {
+              "name": "response_url",
+              "type": "string",
+              "value": "={{ $json.responseUrl }}",
+              "id": "aa110001-wp04-4a04-b004-c00100010004"
+            },
+            {
+              "name": "peopleai_client_id",
+              "type": "string",
+              "value": "=zYedL8iWkGyY",
+              "id": "aa110001-wp05-4a05-b005-c00100010005"
+            },
+            {
+              "name": "peopleai_client_secret",
+              "type": "string",
+              "value": "=E0d2ErottkpSBcM1cQKjwxPtuTnyJxSFoSG1eUqyNKVPEslY",
+              "id": "aa110001-wp06-4a06-b006-c00100010006"
+            },
+            {
+              "name": "sales_region",
+              "value": "={{ $json.sales_region || '' }}",
+              "type": "string",
+              "id": "aa110001-wp07-4a07-b007-c00100010007"
+            },
+            {
+              "name": "subcommand",
+              "value": "={{ $json.subcommand }}",
+              "type": "string",
+              "id": "aa110001-wp08-4a08-b008-c00100010008"
+            },
+            {
+              "name": "args",
+              "value": "={{ $json.args || '' }}",
+              "type": "string",
+              "id": "aa110001-wp09-4a09-b009-c00100010009"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aa110001-0010-4a10-b010-c00100010011",
+      "name": "Workflow Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2792,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/auth/tokens",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $node['Workflow Parameters'].json.peopleai_client_id }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $node['Workflow Parameters'].json.peopleai_client_secret }}"
+            },
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aa110001-0011-4a11-b011-c00100010012",
+      "name": "Get People.ai Auth Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3016,
+        1600
+      ],
+      "notes": "Get OAuth token from People.ai. Client ID and secret now referenced from Workflow Parameters node."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-br01-4a01-b001-c00100010001",
+                    "leftValue": "={{ $node['Workflow Parameters'].json.subcommand }}",
+                    "rightValue": "digest",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Digest"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-br02-4a02-b002-c00100010002",
+                    "leftValue": "={{ $node['Workflow Parameters'].json.subcommand }}",
+                    "rightValue": "calibrate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Calibrate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "aa110001-br03-4a03-b003-c00100010003",
+                    "leftValue": "={{ $node['Workflow Parameters'].json.subcommand }}",
+                    "rightValue": "targets",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Targets"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "aa110001-0012-4a12-b012-c00100010013",
+      "name": "Branch After Auth",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3240,
+        1600
+      ]
+    },
+
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node['Get People.ai Auth Token'].json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => {\n  const region = $node['Workflow Parameters'].json.sales_region;\n  const filters = [\n    {\n      $or: [\n        {\n          attribute: {\n            slug: \"ootb_account_count_of_meetings_standard\",\n            variation_id: \"ootb_account_count_of_meetings_standard_last_30_days\"\n          },\n          clause: { $gt: 0 }\n        },\n        {\n          attribute: { slug: \"ootb_account_count_of_emails\", variation_id: \"ootb_account_count_of_emails_last_30_days\" },\n          clause: { $gt: 0 }\n        }\n      ]\n    }\n  ];\n  if (region) {\n    filters.push({\n      attribute: { slug: \"account_sales_region__c\" },\n      clause: { $eq: region }\n    });\n  }\n  return JSON.stringify({\n    object: \"account\",\n    columns: [\n      { slug: \"ootb_account_id\" },\n      { slug: \"ootb_account_name\" },\n      { slug: \"ootb_account_original_owner\" },\n      { slug: \"ootb_account_domain\" },\n      { slug: \"ootb_account_engagement_level\" },\n      { slug: \"ootb_account_people_internal_id\" },\n      { slug: \"ootb_account_annual_revenue\", variation_id: \"ootb_account_annual_revenue_any_time\" },\n      { slug: \"ootb_account_count_of_meetings_standard\", variation_id: \"ootb_account_count_of_meetings_standard_last_week\" },\n      { slug: \"ootb_account_count_of_meetings_standard\", variation_id: \"ootb_account_count_of_meetings_standard_last_30_days\" },\n      { slug: \"ootb_account_count_of_emails\", variation_id: \"ootb_account_count_of_emails_last_week\" },\n      { slug: \"ootb_account_count_of_emails\", variation_id: \"ootb_account_count_of_emails_last_30_days\" },\n      { slug: \"ootb_account_count_of_external_people_contacted\", variation_id: \"ootb_account_count_of_external_people_contacted_last_30_days\" },\n      { slug: \"ootb_account_count_of_engaged_executives_external\", variation_id: \"ootb_account_count_of_engaged_executives_external_last_30_days\" }\n    ],\n    filter: { $and: filters }\n  });\n})() }}\n",
+        "options": {}
+      },
+      "id": "aa110002-0001-4b01-b101-c00200010001",
+      "name": "Get Account Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3464,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const csvData = $json.data || '';\n\nif (!csvData || csvData.trim().length === 0) {\n  console.log('\u26a0\ufe0f No data returned from API');\n  return [{ json: { _empty: true } }];\n}\n\n// --- CSV parsing helpers ---\nfunction parseCSVLine(line) {\n  const vals = [];\n  let inQuotes = false;\n  let current = '';\n\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n\n    if (c === '\"' && (i === 0 || line[i - 1] !== '\\\\')) {\n      inQuotes = !inQuotes;\n      continue;\n    }\n\n    if (c === ',' && !inQuotes) {\n      vals.push(current);\n      current = '';\n      continue;\n    }\n\n    current += c;\n  }\n\n  vals.push(current);\n  return vals.map(v => v.trim());\n}\n\n// --- Parse CSV ---\nconst lines = csvData.trim().split(/\\r?\\n/);\nconst headers = parseCSVLine(lines[0]);\n\nconsole.log('\ud83d\udcca Headers:', headers);\n\n// --- Build account objects ---\nconst parsedAccounts = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length !== headers.length) continue;\n\n  const account = {};\n  headers.forEach((h, idx) => {\n    account[h] = vals[idx] || '';\n  });\n\n  parsedAccounts.push(account);\n}\n\nconsole.log(`\u2705 Parsed ${parsedAccounts.length} accounts from CSV`);\n\n// --- Output ---\nif (parsedAccounts.length === 0) {\n  console.log('\u26a0\ufe0f No accounts parsed - returning empty sentinel');\n  return [{ json: { _empty: true } }];\n}\nreturn parsedAccounts.map(a => ({ json: a }));\n"
+      },
+      "id": "aa110002-0002-4b02-b102-c00200010002",
+      "name": "Parse Accounts CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3688,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Account Data - Run Once for All Items\n * Extracts and normalizes account fields from CSV headers into structured objects.\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No account data to extract - passing through empty');\n  return [{ json: { _empty: true } }];\n}\nconsole.log(`\ud83d\udd0d Extract Account Data: Processing ${items.length} items`);\n\nfunction findHeader(obj, keywords) {\n  const keys = Object.keys(obj);\n  for (const keyword of keywords) {\n    const found = keys.find(k => \n      k.toLowerCase().includes(keyword.toLowerCase())\n    );\n    if (found) return found;\n  }\n  return null;\n}\n\nfunction toNumber(x) {\n  const n = Number(String(x || '').replace(/[,$]/g, ''));\n  return Number.isFinite(n) ? n : 0;\n}\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  \n  if (i === 0) {\n    console.log('\ud83d\udccb Available keys:', Object.keys(item).join(', '));\n  }\n  \n  const accountId = item['Account ID'] || item.ootb_account_id || 'Unknown';\n  const accountName = item['Account Name'] || item.ootb_account_name || 'Unknown';\n  const accountOwner = item['Account Owner (name)'] || item.ootb_account_original_owner || 'Unassigned';\n  const accountDomain = item['Account Domain'] || item.ootb_account_domain || '';\n  const engagementLevel = toNumber(item['Account Engagement Level'] || item.ootb_account_engagement_level);\n  const peopleaiId = item['People.ai Internal ID'] || item.ootb_account_people_internal_id || null;\n  \n  // Revenue\n  const annualRevenueKey = findHeader(item, ['annual_revenue', 'annual revenue', 'Annual Revenue']);\n  const annualRevenue = toNumber(annualRevenueKey ? item[annualRevenueKey] : 0);\n  \n  // Meetings\n  const meetings7dKey = findHeader(item, ['meetings_standard_last_week', 'Meetings (Last 7 Days)', 'Meetings (Last Week)']);\n  const meetings30dKey = findHeader(item, ['meetings_standard_last_30_days', 'Meetings (Last 30 Days)']);\n  const meetings7d = toNumber(meetings7dKey ? item[meetings7dKey] : 0);\n  const meetings30d = toNumber(meetings30dKey ? item[meetings30dKey] : 0);\n  \n  // Emails\n  const emails7dKey = findHeader(item, ['emails_last_week', 'Emails (Last 7 Days)', 'Emails (Last Week)']);\n  const emails30dKey = findHeader(item, ['emails_last_30_days', 'Emails (Last 30 Days)']);\n  const emails7d = toNumber(emails7dKey ? item[emails7dKey] : 0);\n  const emails30d = toNumber(emails30dKey ? item[emails30dKey] : 0);\n  \n  // People contacted\n  const externalPeopleKey = findHeader(item, ['external_people_contacted_last_30', 'External People Contacted (Last 30 Days)']);\n  const externalPeople30d = toNumber(externalPeopleKey ? item[externalPeopleKey] : 0);\n  \n  // Engaged executives\n  const engagedExecsKey = findHeader(item, ['engaged_executives_external_last_30', 'Engaged Executives (Last 30 Days)']);\n  const engagedExecs30d = toNumber(engagedExecsKey ? item[engagedExecsKey] : 0);\n  \n  if (i < 3) {\n    console.log(`\u2705 Account ${i}: \"${accountName}\" Owner: \"${accountOwner}\" Engagement: ${engagementLevel} Revenue: ${annualRevenue} Meetings7d: ${meetings7d} Meetings30d: ${meetings30d}`);\n  }\n  \n  results.push({\n    json: {\n      accountId,\n      accountName,\n      accountOwner,\n      accountDomain,\n      engagementLevel,\n      peopleaiId,\n      annualRevenue,\n      meetings7d,\n      meetings30d,\n      emails7d,\n      emails30d,\n      externalPeople30d,\n      engagedExecs30d,\n      raw: item\n    }\n  });\n}\n\nconsole.log(`\u2705 Extracted ${results.length} accounts with full metrics`);\n\nreturn results;"
+      },
+      "id": "aa110002-0003-4b03-b103-c00200010003",
+      "name": "Extract Account Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3912,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Filter for Neglected Accounts\n * Criteria: engagement < 30 AND meetings_last_30_days <= 1\n * Sort by annual_revenue descending, take top 10\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No account data for neglected filter');\n  return [{ json: { _empty: true } }];\n}\n\nconsole.log(`\ud83d\udd0d Filtering for neglected accounts from ${items.length} total`);\n\nconst filtered = items.filter(item => {\n  const eng = item.json.engagementLevel || 0;\n  const meetings30d = item.json.meetings30d || 0;\n  return eng < 30 && meetings30d <= 1;\n});\n\nconsole.log(`\ud83d\udea8 Found ${filtered.length} neglected accounts (engagement < 30, meetings <= 1)`);\n\n// Sort by annual revenue descending\nfiltered.sort((a, b) => (b.json.annualRevenue || 0) - (a.json.annualRevenue || 0));\n\n// Take top 10\nconst top10 = filtered.slice(0, 10);\n\nconsole.log(`\u2705 Taking top ${top10.length} neglected accounts by annual revenue`);\ntop10.forEach((item, idx) => {\n  console.log(`  ${idx + 1}. ${item.json.accountName} - Revenue: $${(item.json.annualRevenue || 0).toLocaleString()} - Engagement: ${item.json.engagementLevel}%`);\n});\n\nif (top10.length === 0) {\n  return [{ json: { _empty: true } }];\n}\n\nreturn top10;"
+      },
+      "id": "aa110002-0004-4b04-b104-c00200010004",
+      "name": "Filter Neglected Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4136,
+        960
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Filter for Surging Accounts\n * Criteria: engagement >= 50 AND (meetings_7d / meetings_30d) > 0.4 (accelerating)\n * Sort by engagement descending, take top 10\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No account data for surging filter');\n  return [{ json: { _empty: true } }];\n}\n\nconsole.log(`\ud83d\udd0d Filtering for surging accounts from ${items.length} total`);\n\nconst filtered = items.filter(item => {\n  const eng = item.json.engagementLevel || 0;\n  const meetings7d = item.json.meetings7d || 0;\n  const meetings30d = item.json.meetings30d || 0;\n  \n  if (eng < 50) return false;\n  if (meetings30d === 0) return false;\n  \n  const ratio = meetings7d / meetings30d;\n  return ratio > 0.4;\n});\n\nconsole.log(`\ud83d\udcc8 Found ${filtered.length} surging accounts (engagement >= 50, meeting acceleration > 0.4)`);\n\n// Sort by engagement descending\nfiltered.sort((a, b) => (b.json.engagementLevel || 0) - (a.json.engagementLevel || 0));\n\n// Take top 10\nconst top10 = filtered.slice(0, 10);\n\nconsole.log(`\u2705 Taking top ${top10.length} surging accounts by engagement`);\ntop10.forEach((item, idx) => {\n  const ratio = item.json.meetings30d > 0 ? (item.json.meetings7d / item.json.meetings30d).toFixed(2) : 0;\n  console.log(`  ${idx + 1}. ${item.json.accountName} - Engagement: ${item.json.engagementLevel}% - Acceleration: ${ratio}`);\n});\n\nif (top10.length === 0) {\n  return [{ json: { _empty: true } }];\n}\n\nreturn top10;"
+      },
+      "id": "aa110002-0005-4b05-b105-c00200010005",
+      "name": "Filter Surging Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4136,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Filter for Expansion Candidates\n * Criteria: engagement >= 60 AND external_people_contacted_30d >= 3 AND engaged_executives_30d >= 1\n * Sort by engagement descending, take top 10\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No account data for expansion filter');\n  return [{ json: { _empty: true } }];\n}\n\nconsole.log(`\ud83d\udd0d Filtering for expansion candidates from ${items.length} total`);\n\nconst filtered = items.filter(item => {\n  const eng = item.json.engagementLevel || 0;\n  const externalPeople = item.json.externalPeople30d || 0;\n  const engagedExecs = item.json.engagedExecs30d || 0;\n  \n  return eng >= 60 && externalPeople >= 3 && engagedExecs >= 1;\n});\n\nconsole.log(`\ud83d\udc8e Found ${filtered.length} expansion candidates (engagement >= 60, people >= 3, execs >= 1)`);\n\n// Sort by engagement descending\nfiltered.sort((a, b) => (b.json.engagementLevel || 0) - (a.json.engagementLevel || 0));\n\n// Take top 10\nconst top10 = filtered.slice(0, 10);\n\nconsole.log(`\u2705 Taking top ${top10.length} expansion candidates by engagement`);\ntop10.forEach((item, idx) => {\n  console.log(`  ${idx + 1}. ${item.json.accountName} - Engagement: ${item.json.engagementLevel}% - People: ${item.json.externalPeople30d} - Execs: ${item.json.engagedExecs30d}`);\n});\n\nif (top10.length === 0) {\n  return [{ json: { _empty: true } }];\n}\n\nreturn top10;"
+      },
+      "id": "aa110002-0006-4b06-b106-c00200010006",
+      "name": "Filter Expansion Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4136,
+        1440
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are analyzing accounts that have gone silent \u2014 customer accounts or accounts with open pipeline where recent engagement has dropped to near zero. Your job is to assess the risk of continued neglect and recommend specific re-engagement actions.\n\n**ACCOUNT DATA:**\n- Name: {{ $json.accountName }}\n- Owner: {{ $json.accountOwner }}\n- Engagement Level: {{ $json.engagementLevel }}%\n- Annual Revenue: ${{ $json.annualRevenue }}\n- Domain: {{ $json.accountDomain }}\n- People.ai ID: {{ $json.peopleaiId }}\n- Meetings (7d): {{ $json.meetings7d }} | Meetings (30d): {{ $json.meetings30d }}\n- Emails (7d): {{ $json.emails7d }} | Emails (30d): {{ $json.emails30d }}\n- External People Contacted (30d): {{ $json.externalPeople30d }}\n- Engaged Executives (30d): {{ $json.engagedExecs30d }}\n\n**YOUR TASK:**\nUse the People.ai MCP tools to analyze the last 30 days of activity for this account and assess the neglect risk.\n\n**ANALYSIS FRAMEWORK:**\nFor this neglected account, evaluate:\n\n1. **Why might this account be neglected?**\n   - Owner bandwidth (too many accounts, distracted by larger deals)\n   - Assumed stability (long-tenured customer, \"they'll renew anyway\")\n   - No clear next step (last engagement ended without follow-up)\n   - Relationship gap (primary contact left, no replacement identified)\n\n2. **What is the risk of continued neglect?**\n   - Critical: Open pipeline + zero meetings in 30d + no emails received\n   - High: Customer account + no engagement + renewal within 6 months\n   - Medium: Active pipeline but declining engagement trend\n   - Low: Small account with no immediate pipeline at stake\n\n3. **What specific action should the owner take to re-engage?**\n   - Schedule exec alignment call with customer leadership\n   - Send value-add content (not \"just checking in\")\n   - Initiate business review / QBR\n   - Reassign account if owner is unresponsive\n\n4. **What is the revenue at risk?**\n   - Open pipeline value + estimated renewal value\n\n**OUTPUT FORMAT:**\n---\n**ACCOUNT_NAME:** {{ $json.accountName }}\n**ACCOUNT_ID:** {{ $json.peopleaiId }}\n**RISK_LEVEL:** critical/high/medium/low\n**CONFIDENCE:** high/medium/low\n\n**NEGLECT_REASON:** [One sentence explaining why this account is neglected]\n\n**RISKS:**\n- [Risk 1 with specific evidence]\n- [Risk 2 with specific evidence]\n\n**REVENUE_AT_RISK:** [Dollar estimate]\n\n**RECOMMENDATION:** [One specific re-engagement action]\n---\n\nBe direct and action-oriented. Include specific metric values to justify each insight.",
+        "options": {
+          "systemMessage": "You are an account health analyst specializing in detecting neglected accounts. Be direct and action-oriented \u2014 no filler phrases."
+        }
+      },
+      "id": "aa110002-0007-4b07-b107-c00200010007",
+      "name": "MCP Analyze Neglected Account",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4360,
+        960
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4376,
+        776
+      ],
+      "id": "aa110002-0008-4b08-b108-c00200010008",
+      "name": "Chat Model Neglected",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4504,
+        776
+      ],
+      "id": "aa110002-0009-4b09-b109-c00200010009",
+      "name": "MCP Client Neglected",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle empty input\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst aiOutputs = $input.all();\nconst originalData = $('Filter Neglected Accounts').all();\n\nconsole.log(`\ud83d\udd17 Pass Through Neglected: Merging ${aiOutputs.length} AI outputs with ${originalData.length} accounts`);\n\nconst results = aiOutputs.map((aiItem, idx) => {\n  const original = originalData[idx]?.json || {};\n  const aiOutput = aiItem.json.output || aiItem.json.text || aiItem.json.response || JSON.stringify(aiItem.json);\n  \n  return {\n    json: {\n      accountName: original.accountName || 'Unknown',\n      accountOwner: original.accountOwner || 'Unassigned',\n      accountId: original.accountId,\n      engagementLevel: original.engagementLevel,\n      peopleaiId: original.peopleaiId,\n      annualRevenue: original.annualRevenue,\n      meetings7d: original.meetings7d,\n      meetings30d: original.meetings30d,\n      emails7d: original.emails7d,\n      emails30d: original.emails30d,\n      output: aiOutput,\n      raw: original.raw || original\n    }\n  };\n});\n\nconsole.log(`\u2705 Pass Through Neglected complete: ${results.length} items`);\nreturn results;"
+      },
+      "id": "aa110002-0010-4b10-b110-c00200010010",
+      "name": "Pass Through Neglected Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4584,
+        960
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Neglected Account AI Response\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst items = $input.all();\nconsole.log(`\ud83d\udea8 Parse Neglected AI Response: Processing ${items.length} items`);\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  const aiOutput = item.output || '';\n  \n  // Extract risk level\n  let riskLevel = 'medium';\n  const riskMatch = aiOutput.match(/\\*\\*RISK_LEVEL:\\*\\*\\s*(\\w+)/i);\n  if (riskMatch) riskLevel = riskMatch[1].toLowerCase().trim();\n  else if (/critical/i.test(aiOutput)) riskLevel = 'critical';\n  else if (/high.*risk/i.test(aiOutput)) riskLevel = 'high';\n  \n  // Extract neglect reason\n  let neglectReason = '';\n  const reasonMatch = aiOutput.match(/\\*\\*NEGLECT_REASON:\\*\\*\\s*([^\\n]+)/i);\n  if (reasonMatch) neglectReason = reasonMatch[1].trim();\n  \n  // Extract risks\n  const risks = [];\n  const risksMatch = aiOutput.match(/\\*\\*RISKS:\\*\\*\\s*([\\s\\S]*?)(?=\\n\\*\\*|$)/i);\n  if (risksMatch) {\n    const bullets = risksMatch[1].split('\\n')\n      .map(s => s.trim())\n      .filter(s => s.startsWith('-') || s.startsWith('\u2022'))\n      .map(s => s.replace(/^[-\u2022]\\s*/, '').trim());\n    risks.push(...bullets);\n  }\n  \n  // Extract revenue at risk\n  let revenueAtRisk = '';\n  const revMatch = aiOutput.match(/\\*\\*REVENUE_AT_RISK:\\*\\*\\s*([^\\n]+)/i);\n  if (revMatch) revenueAtRisk = revMatch[1].trim();\n  \n  // Extract recommendation\n  let recommendation = '';\n  const recMatch = aiOutput.match(/\\*\\*RECOMMENDATION:\\*\\*\\s*([^\\n]+)/i);\n  if (recMatch) recommendation = recMatch[1].trim();\n  \n  // Extract confidence\n  let confidence = 'medium';\n  const confMatch = aiOutput.match(/\\*\\*CONFIDENCE:\\*\\*\\s*(\\w+)/i);\n  if (confMatch) confidence = confMatch[1].toLowerCase();\n  \n  console.log(`\ud83d\udea8 ${i + 1}: \"${item.accountName}\" -> risk: ${riskLevel}`);\n  \n  results.push({\n    json: {\n      accountName: item.accountName,\n      accountOwner: item.accountOwner,\n      accountId: item.accountId,\n      engagementLevel: item.engagementLevel,\n      peopleaiId: item.peopleaiId,\n      annualRevenue: item.annualRevenue,\n      meetings7d: item.meetings7d,\n      meetings30d: item.meetings30d,\n      emails7d: item.emails7d,\n      emails30d: item.emails30d,\n      riskLevel,\n      neglectReason,\n      risks,\n      revenueAtRisk,\n      recommendation,\n      confidence,\n      context: aiOutput\n    }\n  });\n}\n\nconsole.log(`\u2705 Parsed ${results.length} neglected account responses`);\nreturn results;"
+      },
+      "id": "aa110002-0011-4b11-b111-c00200010011",
+      "name": "Parse Neglected AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4808,
+        960
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Aggregate Neglected Account Results\n */\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && !items[0].json?.accountName && !items[0].json?._empty !== undefined)) {\n  console.log('\u26a0\ufe0f No neglected account data to aggregate');\n  return [{ json: { neglectedAccounts: [], totalNeglected: 0, _empty: true } }];\n}\n\nconsole.log(`\ud83d\udcca Aggregating ${items.length} neglected account results`);\n\nconst neglectedAccounts = [];\n\nitems.forEach((item, idx) => {\n  const json = item.json;\n  if (json._empty) return;\n  if (json.accountOwner === 'Unassigned Account') return;\n  \n  neglectedAccounts.push({\n    accountName: json.accountName || 'Unknown',\n    accountOwner: json.accountOwner || 'Unassigned',\n    peopleaiId: json.peopleaiId || null,\n    engagementLevel: json.engagementLevel || 0,\n    annualRevenue: json.annualRevenue || 0,\n    meetings30d: json.meetings30d || 0,\n    emails30d: json.emails30d || 0,\n    riskLevel: json.riskLevel || 'medium',\n    neglectReason: json.neglectReason || '',\n    revenueAtRisk: json.revenueAtRisk || '',\n    recommendation: json.recommendation || '',\n    confidence: json.confidence || 'medium'\n  });\n});\n\nconsole.log(`\u2705 Aggregated ${neglectedAccounts.length} neglected accounts`);\n\nreturn [{ json: { neglectedAccounts, totalNeglected: neglectedAccounts.length } }];"
+      },
+      "id": "aa110002-0012-4b12-b112-c00200010012",
+      "name": "Aggregate Neglected Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5032,
+        960
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are analyzing accounts where engagement is rapidly increasing \u2014 meetings surging, emails accelerating, new stakeholders appearing. Your job is to determine whether this surge represents a buying signal and recommend how the owner should capitalize.\n\n**ACCOUNT DATA:**\n- Name: {{ $json.accountName }}\n- Owner: {{ $json.accountOwner }}\n- Engagement Level: {{ $json.engagementLevel }}%\n- Domain: {{ $json.accountDomain }}\n- People.ai ID: {{ $json.peopleaiId }}\n- Meetings (7d): {{ $json.meetings7d }} | Meetings (30d): {{ $json.meetings30d }}\n- Emails (7d): {{ $json.emails7d }} | Emails (30d): {{ $json.emails30d }}\n- External People Contacted (30d): {{ $json.externalPeople30d }}\n- Engaged Executives (30d): {{ $json.engagedExecs30d }}\n- Meeting Acceleration Ratio: {{ $json.meetings30d > 0 ? ($json.meetings7d / $json.meetings30d).toFixed(2) : 'N/A' }}\n\n**YOUR TASK:**\nUse the People.ai MCP tools to analyze the last 30 days of activity for this account and assess the surge.\n\n**ANALYSIS FRAMEWORK:**\nFor this surging account, evaluate:\n\n1. **What is driving the surge?**\n   - New initiative / project launch (broad stakeholder engagement)\n   - Evaluation cycle (exec involvement + meeting cadence increase)\n   - Competitive displacement (rapid engagement from new contacts)\n   - Expansion interest (existing customer, new business unit appearing)\n\n2. **Is there an opportunity forming?**\n   - Strong: Exec engagement + 3x meeting acceleration + new stakeholders\n   - Moderate: Meeting acceleration + email responsiveness increasing\n   - Unclear: Activity spike but limited to single contact or routine cadence\n\n3. **What should the owner do to capitalize?**\n   - Advance to next stage (if opp exists, engagement supports it)\n   - Create opportunity in CRM (if no opp exists, engagement warrants it)\n   - Engage exec sponsor (if exec signals are present)\n   - Map stakeholders (if new people are appearing)\n\n4. **Is this a buying signal?**\n   - Yes: Multi-threaded engagement + exec access + accelerating cadence\n   - Maybe: Single-threaded acceleration, could be project work\n   - No: Routine engagement spike (e.g., support issue, onboarding)\n\n**OUTPUT FORMAT:**\n---\n**ACCOUNT_NAME:** {{ $json.accountName }}\n**ACCOUNT_ID:** {{ $json.peopleaiId }}\n**BUYING_SIGNAL:** yes/maybe/no\n**CONFIDENCE:** high/medium/low\n\n**SURGE_DRIVER:** [One sentence explaining what is driving the surge]\n\n**SIGNALS:**\n- [Signal 1 with specific evidence]\n- [Signal 2 with specific evidence]\n\n**RECOMMENDATION:** [One specific action to capitalize on the surge]\n---\n\nBe direct and action-oriented. Calculate acceleration ratios as (7d value * 4.3) / 30d value to normalize. Include specific metric values.",
+        "options": {
+          "systemMessage": "You are a sales acceleration analyst specializing in detecting buying signals from account activity surges. Be precise and actionable."
+        }
+      },
+      "id": "aa110002-0013-4b13-b113-c00200010013",
+      "name": "MCP Analyze Surging Account",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4360,
+        1200
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4376,
+        1392
+      ],
+      "id": "aa110002-0014-4b14-b114-c00200010014",
+      "name": "Chat Model Surging",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4504,
+        1392
+      ],
+      "id": "aa110002-0015-4b15-b115-c00200010015",
+      "name": "MCP Client Surging",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle empty input\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst aiOutputs = $input.all();\nconst originalData = $('Filter Surging Accounts').all();\n\nconsole.log(`\ud83d\udd17 Pass Through Surging: Merging ${aiOutputs.length} AI outputs with ${originalData.length} accounts`);\n\nconst results = aiOutputs.map((aiItem, idx) => {\n  const original = originalData[idx]?.json || {};\n  const aiOutput = aiItem.json.output || aiItem.json.text || aiItem.json.response || JSON.stringify(aiItem.json);\n  \n  return {\n    json: {\n      accountName: original.accountName || 'Unknown',\n      accountOwner: original.accountOwner || 'Unassigned',\n      accountId: original.accountId,\n      engagementLevel: original.engagementLevel,\n      peopleaiId: original.peopleaiId,\n      meetings7d: original.meetings7d,\n      meetings30d: original.meetings30d,\n      emails7d: original.emails7d,\n      emails30d: original.emails30d,\n      externalPeople30d: original.externalPeople30d,\n      engagedExecs30d: original.engagedExecs30d,\n      output: aiOutput,\n      raw: original.raw || original\n    }\n  };\n});\n\nconsole.log(`\u2705 Pass Through Surging complete: ${results.length} items`);\nreturn results;"
+      },
+      "id": "aa110002-0016-4b16-b116-c00200010016",
+      "name": "Pass Through Surging Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4584,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Surging Account AI Response\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst items = $input.all();\nconsole.log(`\ud83d\udcc8 Parse Surging AI Response: Processing ${items.length} items`);\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  const aiOutput = item.output || '';\n  \n  let buyingSignal = 'maybe';\n  const sigMatch = aiOutput.match(/\\*\\*BUYING_SIGNAL:\\*\\*\\s*(\\w+)/i);\n  if (sigMatch) buyingSignal = sigMatch[1].toLowerCase().trim();\n  \n  let surgeDriver = '';\n  const driverMatch = aiOutput.match(/\\*\\*SURGE_DRIVER:\\*\\*\\s*([^\\n]+)/i);\n  if (driverMatch) surgeDriver = driverMatch[1].trim();\n  \n  const signals = [];\n  const signalsMatch = aiOutput.match(/\\*\\*SIGNALS:\\*\\*\\s*([\\s\\S]*?)(?=\\n\\*\\*|$)/i);\n  if (signalsMatch) {\n    const bullets = signalsMatch[1].split('\\n')\n      .map(s => s.trim())\n      .filter(s => s.startsWith('-') || s.startsWith('\u2022'))\n      .map(s => s.replace(/^[-\u2022]\\s*/, '').trim());\n    signals.push(...bullets);\n  }\n  \n  let recommendation = '';\n  const recMatch = aiOutput.match(/\\*\\*RECOMMENDATION:\\*\\*\\s*([^\\n]+)/i);\n  if (recMatch) recommendation = recMatch[1].trim();\n  \n  let confidence = 'medium';\n  const confMatch = aiOutput.match(/\\*\\*CONFIDENCE:\\*\\*\\s*(\\w+)/i);\n  if (confMatch) confidence = confMatch[1].toLowerCase();\n  \n  console.log(`\ud83d\udcc8 ${i + 1}: \"${item.accountName}\" -> buying_signal: ${buyingSignal}`);\n  \n  results.push({\n    json: {\n      accountName: item.accountName,\n      accountOwner: item.accountOwner,\n      accountId: item.accountId,\n      engagementLevel: item.engagementLevel,\n      peopleaiId: item.peopleaiId,\n      meetings7d: item.meetings7d,\n      meetings30d: item.meetings30d,\n      emails7d: item.emails7d,\n      emails30d: item.emails30d,\n      externalPeople30d: item.externalPeople30d,\n      engagedExecs30d: item.engagedExecs30d,\n      buyingSignal,\n      surgeDriver,\n      signals,\n      recommendation,\n      confidence,\n      context: aiOutput\n    }\n  });\n}\n\nconsole.log(`\u2705 Parsed ${results.length} surging account responses`);\nreturn results;"
+      },
+      "id": "aa110002-0017-4b17-b117-c00200010017",
+      "name": "Parse Surging AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4808,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Aggregate Surging Account Results\n */\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && !items[0].json?.accountName && items[0].json?._empty)) {\n  console.log('\u26a0\ufe0f No surging account data to aggregate');\n  return [{ json: { surgingAccounts: [], totalSurging: 0, _empty: true } }];\n}\n\nconsole.log(`\ud83d\udcca Aggregating ${items.length} surging account results`);\n\nconst surgingAccounts = [];\n\nitems.forEach((item, idx) => {\n  const json = item.json;\n  if (json._empty) return;\n  if (json.accountOwner === 'Unassigned Account') return;\n  \n  surgingAccounts.push({\n    accountName: json.accountName || 'Unknown',\n    accountOwner: json.accountOwner || 'Unassigned',\n    peopleaiId: json.peopleaiId || null,\n    engagementLevel: json.engagementLevel || 0,\n    meetings7d: json.meetings7d || 0,\n    meetings30d: json.meetings30d || 0,\n    emails7d: json.emails7d || 0,\n    emails30d: json.emails30d || 0,\n    externalPeople30d: json.externalPeople30d || 0,\n    engagedExecs30d: json.engagedExecs30d || 0,\n    buyingSignal: json.buyingSignal || 'maybe',\n    surgeDriver: json.surgeDriver || '',\n    signals: json.signals || [],\n    recommendation: json.recommendation || '',\n    confidence: json.confidence || 'medium'\n  });\n});\n\nconsole.log(`\u2705 Aggregated ${surgingAccounts.length} surging accounts`);\n\nreturn [{ json: { surgingAccounts, totalSurging: surgingAccounts.length } }];"
+      },
+      "id": "aa110002-0018-4b18-b118-c00200010018",
+      "name": "Aggregate Surging Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5032,
+        1200
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are analyzing customer accounts where activity levels suggest untapped expansion potential \u2014 high engagement relative to current deal footprint. Your job is to identify where expansion opportunities exist and estimate their value.\n\n**ACCOUNT DATA:**\n- Name: {{ $json.accountName }}\n- Owner: {{ $json.accountOwner }}\n- Engagement Level: {{ $json.engagementLevel }}%\n- Annual Revenue: ${{ $json.annualRevenue }}\n- Domain: {{ $json.accountDomain }}\n- People.ai ID: {{ $json.peopleaiId }}\n- Meetings (7d): {{ $json.meetings7d }} | Meetings (30d): {{ $json.meetings30d }}\n- Emails (7d): {{ $json.emails7d }} | Emails (30d): {{ $json.emails30d }}\n- External People Contacted (30d): {{ $json.externalPeople30d }}\n- Engaged Executives (30d): {{ $json.engagedExecs30d }}\n\n**YOUR TASK:**\nUse the People.ai MCP tools to analyze the last 30 days of activity for this account and assess expansion potential.\n\n**ANALYSIS FRAMEWORK:**\nFor this expansion candidate, evaluate:\n\n1. **Where is the expansion potential?**\n   - New business unit (engagement from contacts outside existing footprint)\n   - Product cross-sell (existing stakeholders engaging on new topics)\n   - Usage-based growth (high adoption signals, ready for next tier)\n   - Geographic expansion (contacts from new regions appearing)\n\n2. **What products/services might apply?**\n   - Infer from stakeholder titles and engagement patterns\n   - Reference existing closed-won to identify whitespace\n   - Consider annual revenue as sizing indicator for total addressable spend\n\n3. **Who are the key stakeholders to engage?**\n   - Identify exec sponsors vs operational champions\n   - Flag new contacts who may be expansion sponsors\n   - Note multi-threading depth (single vs multi-department engagement)\n\n4. **What is the estimated expansion opportunity?**\n   - Base estimate on engagement intensity + annual revenue\n   - Provide conservative and stretch estimates\n\n**OUTPUT FORMAT:**\n---\n**ACCOUNT_NAME:** {{ $json.accountName }}\n**ACCOUNT_ID:** {{ $json.peopleaiId }}\n**EXPANSION_POTENTIAL:** high/medium/low\n**CONFIDENCE:** high/medium/low\n\n**EXPANSION_SIGNALS:** [One sentence summary of expansion indicators]\n\n**SIGNALS:**\n- [Signal 1 with specific evidence]\n- [Signal 2 with specific evidence]\n\n**ESTIMATED_VALUE:** [Dollar range: conservative \u2014 stretch]\n\n**RECOMMENDATION:** [Specific approach to pursue the expansion]\n---\n\nBe direct and action-oriented. Express expansion estimates as dollar ranges. Include specific metric values.",
+        "options": {
+          "systemMessage": "You are an account expansion analyst specializing in identifying upsell and cross-sell opportunities from engagement data. Be precise and actionable."
+        }
+      },
+      "id": "aa110002-0019-4b19-b119-c00200010019",
+      "name": "MCP Analyze Expansion Account",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4360,
+        1440
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4376,
+        1664
+      ],
+      "id": "aa110002-0020-4b20-b120-c00200010020",
+      "name": "Chat Model Expansion",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4504,
+        1664
+      ],
+      "id": "aa110002-0021-4b21-b121-c00200010021",
+      "name": "MCP Client Expansion",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle empty input\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst aiOutputs = $input.all();\nconst originalData = $('Filter Expansion Candidates').all();\n\nconsole.log(`\ud83d\udd17 Pass Through Expansion: Merging ${aiOutputs.length} AI outputs with ${originalData.length} accounts`);\n\nconst results = aiOutputs.map((aiItem, idx) => {\n  const original = originalData[idx]?.json || {};\n  const aiOutput = aiItem.json.output || aiItem.json.text || aiItem.json.response || JSON.stringify(aiItem.json);\n  \n  return {\n    json: {\n      accountName: original.accountName || 'Unknown',\n      accountOwner: original.accountOwner || 'Unassigned',\n      accountId: original.accountId,\n      engagementLevel: original.engagementLevel,\n      peopleaiId: original.peopleaiId,\n      annualRevenue: original.annualRevenue,\n      meetings30d: original.meetings30d,\n      externalPeople30d: original.externalPeople30d,\n      engagedExecs30d: original.engagedExecs30d,\n      output: aiOutput,\n      raw: original.raw || original\n    }\n  };\n});\n\nconsole.log(`\u2705 Pass Through Expansion complete: ${results.length} items`);\nreturn results;"
+      },
+      "id": "aa110002-0022-4b22-b122-c00200010022",
+      "name": "Pass Through Expansion Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4584,
+        1440
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Expansion Account AI Response\nif ($input.all().length === 1 && $input.all()[0].json._empty) {\n  return [{ json: { _empty: true } }];\n}\n\nconst items = $input.all();\nconsole.log(`\ud83d\udc8e Parse Expansion AI Response: Processing ${items.length} items`);\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  const aiOutput = item.output || '';\n  \n  let expansionPotential = 'medium';\n  const potMatch = aiOutput.match(/\\*\\*EXPANSION_POTENTIAL:\\*\\*\\s*(\\w+)/i);\n  if (potMatch) expansionPotential = potMatch[1].toLowerCase().trim();\n  \n  let expansionSignals = '';\n  const expSigMatch = aiOutput.match(/\\*\\*EXPANSION_SIGNALS:\\*\\*\\s*([^\\n]+)/i);\n  if (expSigMatch) expansionSignals = expSigMatch[1].trim();\n  \n  const signals = [];\n  const signalsMatch = aiOutput.match(/\\*\\*SIGNALS:\\*\\*\\s*([\\s\\S]*?)(?=\\n\\*\\*|$)/i);\n  if (signalsMatch) {\n    const bullets = signalsMatch[1].split('\\n')\n      .map(s => s.trim())\n      .filter(s => s.startsWith('-') || s.startsWith('\u2022'))\n      .map(s => s.replace(/^[-\u2022]\\s*/, '').trim());\n    signals.push(...bullets);\n  }\n  \n  let estimatedValue = '';\n  const valMatch = aiOutput.match(/\\*\\*ESTIMATED_VALUE:\\*\\*\\s*([^\\n]+)/i);\n  if (valMatch) estimatedValue = valMatch[1].trim();\n  \n  let recommendation = '';\n  const recMatch = aiOutput.match(/\\*\\*RECOMMENDATION:\\*\\*\\s*([^\\n]+)/i);\n  if (recMatch) recommendation = recMatch[1].trim();\n  \n  let confidence = 'medium';\n  const confMatch = aiOutput.match(/\\*\\*CONFIDENCE:\\*\\*\\s*(\\w+)/i);\n  if (confMatch) confidence = confMatch[1].toLowerCase();\n  \n  console.log(`\ud83d\udc8e ${i + 1}: \"${item.accountName}\" -> expansion_potential: ${expansionPotential}`);\n  \n  results.push({\n    json: {\n      accountName: item.accountName,\n      accountOwner: item.accountOwner,\n      accountId: item.accountId,\n      engagementLevel: item.engagementLevel,\n      peopleaiId: item.peopleaiId,\n      annualRevenue: item.annualRevenue,\n      meetings30d: item.meetings30d,\n      externalPeople30d: item.externalPeople30d,\n      engagedExecs30d: item.engagedExecs30d,\n      expansionPotential,\n      expansionSignals,\n      signals,\n      estimatedValue,\n      recommendation,\n      confidence,\n      context: aiOutput\n    }\n  });\n}\n\nconsole.log(`\u2705 Parsed ${results.length} expansion account responses`);\nreturn results;"
+      },
+      "id": "aa110002-0023-4b23-b123-c00200010023",
+      "name": "Parse Expansion AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4808,
+        1440
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Aggregate Expansion Account Results\n */\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && !items[0].json?.accountName && items[0].json?._empty)) {\n  console.log('\u26a0\ufe0f No expansion account data to aggregate');\n  return [{ json: { expansionCandidates: [], totalExpansion: 0, _empty: true } }];\n}\n\nconsole.log(`\ud83d\udcca Aggregating ${items.length} expansion account results`);\n\nconst expansionCandidates = [];\n\nitems.forEach((item, idx) => {\n  const json = item.json;\n  if (json._empty) return;\n  if (json.accountOwner === 'Unassigned Account') return;\n  \n  expansionCandidates.push({\n    accountName: json.accountName || 'Unknown',\n    accountOwner: json.accountOwner || 'Unassigned',\n    peopleaiId: json.peopleaiId || null,\n    engagementLevel: json.engagementLevel || 0,\n    annualRevenue: json.annualRevenue || 0,\n    meetings30d: json.meetings30d || 0,\n    externalPeople30d: json.externalPeople30d || 0,\n    engagedExecs30d: json.engagedExecs30d || 0,\n    expansionPotential: json.expansionPotential || 'medium',\n    expansionSignals: json.expansionSignals || '',\n    signals: json.signals || [],\n    estimatedValue: json.estimatedValue || '',\n    recommendation: json.recommendation || '',\n    confidence: json.confidence || 'medium'\n  });\n});\n\nconsole.log(`\u2705 Aggregated ${expansionCandidates.length} expansion candidates`);\n\nreturn [{ json: { expansionCandidates, totalExpansion: expansionCandidates.length } }];"
+      },
+      "id": "aa110002-0024-4b24-b124-c00200010024",
+      "name": "Aggregate Expansion Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5032,
+        1440
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5256,
+        1200
+      ],
+      "id": "aa110002-0025-4b25-b125-c00200010025",
+      "name": "Merge Digest Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconsole.log(`\ud83d\udcca Format Merged Data: Processing ${items.length} inputs`);\n\nconst output = {\n  neglectedAccounts: [],\n  surgingAccounts: [],\n  expansionCandidates: [],\n  totalNeglected: 0,\n  totalSurging: 0,\n  totalExpansion: 0,\n  hasData: false\n};\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  console.log(`\\n\ud83d\udd0d Input ${i + 1}:`, Object.keys(item));\n\n  if (item.neglectedAccounts) {\n    output.neglectedAccounts = item.neglectedAccounts || [];\n    output.totalNeglected = item.totalNeglected || 0;\n    output.hasData = true;\n    console.log(`\u2705 Found neglected accounts: ${output.totalNeglected}`);\n  }\n\n  if (item.surgingAccounts) {\n    output.surgingAccounts = item.surgingAccounts || [];\n    output.totalSurging = item.totalSurging || 0;\n    output.hasData = true;\n    console.log(`\u2705 Found surging accounts: ${output.totalSurging}`);\n  }\n\n  if (item.expansionCandidates) {\n    output.expansionCandidates = item.expansionCandidates || [];\n    output.totalExpansion = item.totalExpansion || 0;\n    output.hasData = true;\n    console.log(`\u2705 Found expansion candidates: ${output.totalExpansion}`);\n  }\n}\n\nconsole.log(`\\n\ud83d\udce6 Merged Data Summary:`);\nconsole.log(`   \ud83d\udea8 Neglected: ${output.totalNeglected} accounts`);\nconsole.log(`   \ud83d\udcc8 Surging: ${output.totalSurging} accounts`);\nconsole.log(`   \ud83d\udc8e Expansion: ${output.totalExpansion} candidates`);\n\nif (!output.hasData) {\n  console.warn('\u26a0\ufe0f No data found in any input!');\n}\n\nreturn [{ json: output }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5480,
+        1200
+      ],
+      "id": "aa110002-0026-4b26-b126-c00200010026",
+      "name": "Format Digest Merged Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the Account Insights Digest for Slack\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '`$0`';\n  if (amount >= 1000000) return `\\`$${(amount / 1000000).toFixed(1)}M\\``;\n  if (amount >= 1000) return `\\`$${Math.round(amount / 1000)}K\\``;\n  return `\\`$${Math.round(amount)}\\``;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<https://app.people.ai/crm/account/${peopleaiId}|${accountName}>`;\n}\n\nconst userName = $node['Workflow Parameters'].json.user_name || 'there';\nconst salesRegion = $node['Workflow Parameters'].json.sales_region || '';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\\ud83c\\udfe2 *Account Insights Digest*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n`;\nif (salesRegion) {\n  message += `\\ud83c\\udf0d Region: ${salesRegion}\\n`;\n}\nmessage += `\\n`;\n\n// SECTION 1: NEGLECTED ACCOUNTS\nconst neglected = data.neglectedAccounts || [];\nmessage += `\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 High-value accounts going dark\\n`;\n\nif (neglected.length > 0) {\n  neglected.forEach((acct, idx) => {\n    const riskEmoji = acct.riskLevel === 'critical' ? '\\ud83d\\udd34' : acct.riskLevel === 'high' ? '\\ud83d\\udfe0' : '\\ud83d\\udfe1';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${riskEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 Emails(30d): ${acct.emails30d}\\n`;\n    if (acct.neglectReason) {\n      message += `   \\u26a0\\ufe0f _${truncate(acct.neglectReason, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No neglected accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 2: SURGING ACCOUNTS\nconst surging = data.surgingAccounts || [];\nmessage += `\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Accounts showing acceleration\\n`;\n\nif (surging.length > 0) {\n  surging.forEach((acct, idx) => {\n    const sigEmoji = acct.buyingSignal === 'yes' ? '\\ud83d\\udfe2' : acct.buyingSignal === 'maybe' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    const accelRatio = acct.meetings30d > 0 ? (acct.meetings7d / acct.meetings30d).toFixed(2) : 'N/A';\n    message += `${idx + 1}. ${sigEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}%\\n`;\n    message += `   Meetings: ${acct.meetings7d}(7d)/${acct.meetings30d}(30d) \\u2022 Accel: ${accelRatio} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.surgeDriver) {\n      message += `   \\ud83d\\udd0e _${truncate(acct.surgeDriver, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No surging accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 3: EXPANSION CANDIDATES\nconst expansion = data.expansionCandidates || [];\nmessage += `\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Customers ready for more\\n`;\n\nif (expansion.length > 0) {\n  expansion.forEach((acct, idx) => {\n    const potEmoji = acct.expansionPotential === 'high' ? '\\ud83d\\udfe2' : acct.expansionPotential === 'medium' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${potEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.expansionSignals) {\n      message += `   \\ud83d\\udca1 _${truncate(acct.expansionSignals, 80)}_\\n`;\n    }\n    if (acct.estimatedValue) {\n      message += `   \\ud83d\\udcb0 _Est. expansion: ${truncate(acct.estimatedValue, 60)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No expansion candidates detected_\\n\\n`;\n}\n\nmessage += `\\n_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $node['Workflow Parameters'].json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nconsole.log('\\ud83d\\udce7 Slack message formatted:', message.length, 'characters');\n\nreturn [{\n  json: {\n    message,\n    ...data\n  }\n}];"
+      },
+      "id": "aa110002-0027-4b27-b127-c00200010027",
+      "name": "Format Digest Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5704,
+        1068
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Workflow Parameters'].json.response_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ response_type: \"in_channel\", text: $json.message, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "aa110002-0028-4b28-b128-c00200010028",
+      "name": "Post Digest to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5928,
+        968
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the Account Insights Digest for Email - HTML VERSION\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '$0';\n  if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;\n  if (amount >= 1000) return `$${Math.round(amount / 1000)}K`;\n  return `$${Math.round(amount)}`;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<a href=\"https://app.people.ai/crm/account/${peopleaiId}\" style=\"color: #3b82f6; text-decoration: none;\">${accountName}</a>`;\n}\n\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\nconst salesRegion = $node['Workflow Parameters'].json.sales_region || '';\n\nconst neglected = data.neglectedAccounts || [];\nconst surging = data.surgingAccounts || [];\nconst expansion = data.expansionCandidates || [];\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Account Insights Digest</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\\ud83c\\udfe2 Account Insights Digest</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">${today}${salesRegion ? ' \\u2022 ' + salesRegion : ''} \\u2022 3 Insight Types</p></div><div style=\"padding: 32px;\">`;\n\n// NEGLECTED\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #dc2626; padding-bottom: 8px;\">\\ud83d\\udea8 Neglected Accounts</h2><div style=\"background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #991b1b;\">High-value accounts going dark \\u2022 ${neglected.length} accounts</p></div>`;\nif (neglected.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  neglected.forEach((acct, idx) => {\n    const riskColor = acct.riskLevel === 'critical' ? '#dc2626' : acct.riskLevel === 'high' ? '#ea580c' : '#ca8a04';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 <span style=\"color: ${riskColor}; font-weight: 600;\">${(acct.riskLevel || 'medium').toUpperCase()} RISK</span></div><div style=\"color: #6b7280; font-size: 13px; margin-bottom: 6px;\">${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev \\u2022 Eng: ${acct.engagementLevel}%</div>`;\n    if (acct.neglectReason) html += `<div style=\"color: #991b1b; font-size: 13px; font-style: italic; background-color: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.neglectReason, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No neglected accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// SURGING\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #10b981; padding-bottom: 8px;\">\\ud83d\\udcc8 Surging Accounts</h2><div style=\"background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #065f46;\">Accounts showing acceleration \\u2022 ${surging.length} accounts</p></div>`;\nif (surging.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  surging.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 Eng: ${acct.engagementLevel}%</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Meetings: ${acct.meetings7d || 0}(7d)/${acct.meetings30d || 0}(30d)</div>`;\n    if (acct.surgeDriver) html += `<div style=\"color: #065f46; font-size: 13px; font-style: italic; background-color: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.surgeDriver, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No surging accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// EXPANSION\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #8b5cf6; padding-bottom: 8px;\">\\ud83d\\udc8e Expansion Candidates</h2><div style=\"background-color: #f5f3ff; border-left: 4px solid #8b5cf6; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #5b21b6;\">Customers ready for more \\u2022 ${expansion.length} candidates</p></div>`;\nif (expansion.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  expansion.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 ${formatCurrency(acct.annualRevenue)} rev</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}% \\u2022 People: ${acct.externalPeople30d || 0} \\u2022 Execs: ${acct.engagedExecs30d || 0}</div>`;\n    if (acct.expansionSignals) html += `<div style=\"color: #5b21b6; font-size: 13px; font-style: italic; background-color: #f5f3ff; padding: 8px; border-radius: 4px;\">\\ud83d\\udca1 ${truncate(acct.expansionSignals, 120)}</div>`;\n    if (acct.estimatedValue) html += `<div style=\"color: #5b21b6; font-size: 13px; font-weight: 600;\">\\ud83d\\udcb0 Est: ${truncate(acct.estimatedValue, 80)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No expansion candidates detected</p>`;\n}\nhtml += `</div>`;\n\nhtml += `</div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0 0 8px 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Account Insights Digest - ${today}` } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5704,
+        1332
+      ],
+      "id": "aa110002-0029-4b29-b129-c00200010029",
+      "name": "Format Digest Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "scott.metcalf@people.ai",
+        "toEmail": "={{ $node[\"Workflow Parameters\"].json.user_email }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.htmlEmail }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        5928,
+        1332
+      ],
+      "id": "aa110002-0030-4b30-b130-c00200010030",
+      "name": "Send Digest Email",
+      "credentials": {
+        "smtp": {
+          "id": "PfRzHYltm16I6dan",
+          "name": "SMTP(scott.metcalf@people.ai)"
+        }
+      }
+    },
+
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node['Get People.ai Auth Token'].json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  object: 'account',\n  columns: [\n    { slug: 'ootb_account_id' },\n    { slug: 'ootb_account_name' },\n    { slug: 'ootb_account_original_owner' },\n    { slug: 'ootb_account_domain' },\n    { slug: 'ootb_account_engagement_level' },\n    { slug: 'ootb_account_annual_revenue', variation_id: 'ootb_account_annual_revenue_any_time' },\n    { slug: 'ootb_account_industry' },\n    { slug: 'ootb_account_count_of_meetings_standard', variation_id: 'ootb_account_count_of_meetings_standard_last_30_days' },\n    { slug: 'ootb_account_count_of_emails', variation_id: 'ootb_account_count_of_emails_last_30_days' },\n    { slug: 'ootb_account_count_of_emails_sent', variation_id: 'ootb_account_count_of_emails_sent_last_30_days' },\n    { slug: 'ootb_account_count_of_emails_received', variation_id: 'ootb_account_count_of_emails_received_last_30_days' },\n    { slug: 'ootb_account_count_of_external_people_contacted', variation_id: 'ootb_account_count_of_external_people_contacted_last_30_days' },\n    { slug: 'ootb_account_count_of_external_people_contacted', variation_id: 'ootb_account_count_of_external_people_contacted_last_7_days' },\n    { slug: 'ootb_account_count_of_engaged_executives_external', variation_id: 'ootb_account_count_of_engaged_executives_external_last_30_days' },\n    { slug: 'ootb_account_executive_activities', variation_id: 'ootb_account_executive_activities_last_30_days' },\n    { slug: 'ootb_account_people_engaged', variation_id: 'ootb_account_people_engaged_last_30_days' },\n    { slug: 'ootb_account_closed_won_opportunities', variation_id: 'ootb_account_closed_won_opportunities_last_fyear' }\n  ],\n  filter: {\n    $and: [\n      {\n        attribute: {\n          slug: 'ootb_account_closed_won_opportunities',\n          variation_id: 'ootb_account_closed_won_opportunities_last_fyear'\n        },\n        clause: { $gt: 0 }\n      }\n    ]\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "aa110003-0001-4c01-c101-d00300010001",
+      "name": "Get Winners",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3464,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const csvData = $json.data || '';\n\nif (!csvData || csvData.trim().length === 0) {\n  console.log('\u26a0\ufe0f No data returned from API');\n  return [{ json: { _empty: true } }];\n}\n\nfunction parseCSVLine(line) {\n  const vals = [];\n  let inQuotes = false;\n  let current = '';\n\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n\n    if (c === '\"' && (i === 0 || line[i - 1] !== '\\\\')) {\n      inQuotes = !inQuotes;\n      continue;\n    }\n\n    if (c === ',' && !inQuotes) {\n      vals.push(current);\n      current = '';\n      continue;\n    }\n\n    current += c;\n  }\n\n  vals.push(current);\n  return vals.map(v => v.trim());\n}\n\nconst lines = csvData.trim().split(/\\r?\\n/);\nconst headers = parseCSVLine(lines[0]);\n\nconsole.log('\ud83d\udcca Winners CSV Headers:', headers);\n\nconst parsedAccounts = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length !== headers.length) continue;\n\n  const account = {};\n  headers.forEach((h, idx) => {\n    account[h] = vals[idx] || '';\n  });\n\n  parsedAccounts.push(account);\n}\n\nconsole.log(`\u2705 Parsed ${parsedAccounts.length} winner accounts from CSV`);\n\nif (parsedAccounts.length === 0) {\n  return [{ json: { _empty: true } }];\n}\nreturn parsedAccounts.map(a => ({ json: a }));\n"
+      },
+      "id": "aa110003-0002-4c02-c102-d00300010002",
+      "name": "Parse Winners CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3688,
+        2000
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Winner Metrics\n * Extracts all fields, computes derived ratios, takes top 30 by closed_won count descending.\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No winner data to extract');\n  return [{ json: { _empty: true, winners: [] } }];\n}\n\nconsole.log(`\ud83d\udd0d Extract Winner Metrics: Processing ${items.length} items`);\n\nfunction findHeader(obj, keywords) {\n  const keys = Object.keys(obj);\n  for (const keyword of keywords) {\n    const found = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));\n    if (found) return found;\n  }\n  return null;\n}\n\nfunction toNumber(x) {\n  const n = Number(String(x || '').replace(/[,$]/g, ''));\n  return Number.isFinite(n) ? n : 0;\n}\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n\n  if (i === 0) console.log('\ud83d\udccb Available keys:', Object.keys(item).join(', '));\n\n  const accountId = item['Account ID'] || item.ootb_account_id || 'Unknown';\n  const accountName = item['Account Name'] || item.ootb_account_name || 'Unknown';\n  const accountOwner = item['Account Owner (name)'] || item.ootb_account_original_owner || 'Unassigned';\n  const accountDomain = item['Account Domain'] || item.ootb_account_domain || '';\n  const engagementLevel = toNumber(item['Account Engagement Level'] || item.ootb_account_engagement_level);\n  const industry = item['Account Industry'] || item.ootb_account_industry || '';\n\n  const annualRevenueKey = findHeader(item, ['annual_revenue', 'annual revenue', 'Annual Revenue']);\n  const annualRevenue = toNumber(annualRevenueKey ? item[annualRevenueKey] : 0);\n\n  const meetings30dKey = findHeader(item, ['meetings_standard_last_30_days', 'Meetings (Last 30 Days)']);\n  const meetings30d = toNumber(meetings30dKey ? item[meetings30dKey] : 0);\n\n  const emails30dKey = findHeader(item, ['count_of_emails_last_30_days', 'Emails (Last 30 Days)']);\n  const emails30d = toNumber(emails30dKey ? item[emails30dKey] : 0);\n\n  const emailsSentKey = findHeader(item, ['emails_sent_last_30', 'Emails Sent (Last 30 Days)']);\n  const emailsSent30d = toNumber(emailsSentKey ? item[emailsSentKey] : 0);\n\n  const emailsReceivedKey = findHeader(item, ['emails_received_last_30', 'Emails Received (Last 30 Days)']);\n  const emailsReceived30d = toNumber(emailsReceivedKey ? item[emailsReceivedKey] : 0);\n\n  const peopleContacted30dKey = findHeader(item, ['external_people_contacted_last_30', 'External People Contacted (Last 30 Days)']);\n  const peopleContacted30d = toNumber(peopleContacted30dKey ? item[peopleContacted30dKey] : 0);\n\n  const peopleContacted7dKey = findHeader(item, ['external_people_contacted_last_7', 'External People Contacted (Last 7 Days)']);\n  const peopleContacted7d = toNumber(peopleContacted7dKey ? item[peopleContacted7dKey] : 0);\n\n  const execsEngagedKey = findHeader(item, ['engaged_executives_external_last_30', 'Engaged Executives (Last 30 Days)']);\n  const execsEngaged30d = toNumber(execsEngagedKey ? item[execsEngagedKey] : 0);\n\n  const execActivitiesKey = findHeader(item, ['executive_activities_last_30', 'Executive Activities (Last 30 Days)']);\n  const execActivities30d = toNumber(execActivitiesKey ? item[execActivitiesKey] : 0);\n\n  const peopleEngagedKey = findHeader(item, ['people_engaged_last_30', 'People Engaged (Last 30 Days)']);\n  const peopleEngaged30d = toNumber(peopleEngagedKey ? item[peopleEngagedKey] : 0);\n\n  const closedWonKey = findHeader(item, ['closed_won_opportunities_last_fyear', 'Closed Won Opportunities (Last FYear)']);\n  const closedWon = toNumber(closedWonKey ? item[closedWonKey] : 0);\n\n  const totalActivity = meetings30d + emails30d;\n  const meetingRatio = totalActivity > 0 ? meetings30d / totalActivity : 0;\n  const execRatio = peopleContacted30d > 0 ? execsEngaged30d / peopleContacted30d : 0;\n  const emailResponsiveness = emailsSent30d > 0 ? emailsReceived30d / emailsSent30d : 0;\n  const contactVelocityProxy = peopleContacted30d > 0 ? (peopleContacted7d / peopleContacted30d) * 4.286 : 0;\n  const stakeholderBreadth = peopleContacted30d / 4.3;\n\n  results.push({\n    accountId, accountName, accountOwner, accountDomain, engagementLevel, industry, annualRevenue,\n    meetings30d, emails30d, emailsSent30d, emailsReceived30d, peopleContacted30d, peopleContacted7d,\n    execsEngaged30d, execActivities30d, peopleEngaged30d, closedWon,\n    meetingRatio: Math.round(meetingRatio * 1000) / 1000,\n    execRatio: Math.round(execRatio * 1000) / 1000,\n    emailResponsiveness: Math.round(emailResponsiveness * 1000) / 1000,\n    contactVelocityProxy: Math.round(contactVelocityProxy * 1000) / 1000,\n    stakeholderBreadth: Math.round(stakeholderBreadth * 100) / 100\n  });\n}\n\nresults.sort((a, b) => b.closedWon - a.closedWon);\nconst top30 = results.slice(0, 30);\n\nconsole.log(`\u2705 Extracted ${results.length} total winners, returning top ${top30.length} by closed-won count`);\n\nreturn [{ json: { winners: top30, totalWinners: top30.length } }];\n"
+      },
+      "id": "aa110003-0003-4c03-c103-d00300010003",
+      "name": "Extract Winner Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3912,
+        2000
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node['Get People.ai Auth Token'].json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  object: 'account',\n  columns: [\n    { slug: 'ootb_account_id' },\n    { slug: 'ootb_account_name' },\n    { slug: 'ootb_account_original_owner' },\n    { slug: 'ootb_account_domain' },\n    { slug: 'ootb_account_engagement_level' },\n    { slug: 'ootb_account_annual_revenue', variation_id: 'ootb_account_annual_revenue_any_time' },\n    { slug: 'ootb_account_industry' },\n    { slug: 'ootb_account_count_of_meetings_standard', variation_id: 'ootb_account_count_of_meetings_standard_last_30_days' },\n    { slug: 'ootb_account_count_of_emails', variation_id: 'ootb_account_count_of_emails_last_30_days' },\n    { slug: 'ootb_account_count_of_emails_sent', variation_id: 'ootb_account_count_of_emails_sent_last_30_days' },\n    { slug: 'ootb_account_count_of_emails_received', variation_id: 'ootb_account_count_of_emails_received_last_30_days' },\n    { slug: 'ootb_account_count_of_external_people_contacted', variation_id: 'ootb_account_count_of_external_people_contacted_last_30_days' },\n    { slug: 'ootb_account_count_of_external_people_contacted', variation_id: 'ootb_account_count_of_external_people_contacted_last_7_days' },\n    { slug: 'ootb_account_count_of_engaged_executives_external', variation_id: 'ootb_account_count_of_engaged_executives_external_last_30_days' },\n    { slug: 'ootb_account_executive_activities', variation_id: 'ootb_account_executive_activities_last_30_days' },\n    { slug: 'ootb_account_people_engaged', variation_id: 'ootb_account_people_engaged_last_30_days' },\n    { slug: 'ootb_account_closed_lost_opportunities', variation_id: 'ootb_account_closed_lost_opportunities_last_fyear' },\n    { slug: 'ootb_account_closed_won_opportunities', variation_id: 'ootb_account_closed_won_opportunities_last_fyear' }\n  ],\n  filter: {\n    $and: [\n      {\n        attribute: {\n          slug: 'ootb_account_closed_lost_opportunities',\n          variation_id: 'ootb_account_closed_lost_opportunities_last_fyear'\n        },\n        clause: { $gt: 0 }\n      },\n      {\n        attribute: {\n          slug: 'ootb_account_closed_won_opportunities',\n          variation_id: 'ootb_account_closed_won_opportunities_last_fyear'\n        },\n        clause: { $eq: 0 }\n      }\n    ]\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "aa110003-0004-4c04-c104-d00300010004",
+      "name": "Get Losers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3464,
+        2300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const csvData = $json.data || '';\n\nif (!csvData || csvData.trim().length === 0) {\n  console.log('\u26a0\ufe0f No data returned from API');\n  return [{ json: { _empty: true } }];\n}\n\nfunction parseCSVLine(line) {\n  const vals = [];\n  let inQuotes = false;\n  let current = '';\n\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n\n    if (c === '\"' && (i === 0 || line[i - 1] !== '\\\\')) {\n      inQuotes = !inQuotes;\n      continue;\n    }\n\n    if (c === ',' && !inQuotes) {\n      vals.push(current);\n      current = '';\n      continue;\n    }\n\n    current += c;\n  }\n\n  vals.push(current);\n  return vals.map(v => v.trim());\n}\n\nconst lines = csvData.trim().split(/\\r?\\n/);\nconst headers = parseCSVLine(lines[0]);\n\nconsole.log('\ud83d\udcca Losers CSV Headers:', headers);\n\nconst parsedAccounts = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length !== headers.length) continue;\n\n  const account = {};\n  headers.forEach((h, idx) => {\n    account[h] = vals[idx] || '';\n  });\n\n  parsedAccounts.push(account);\n}\n\nconsole.log(`\u2705 Parsed ${parsedAccounts.length} loser accounts from CSV`);\n\nif (parsedAccounts.length === 0) {\n  return [{ json: { _empty: true } }];\n}\nreturn parsedAccounts.map(a => ({ json: a }));\n"
+      },
+      "id": "aa110003-0005-4c05-c105-d00300010005",
+      "name": "Parse Losers CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3688,
+        2300
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Loser Metrics\n * Same derived ratios as winners. Take top 30 by closed_lost count descending.\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No loser data to extract');\n  return [{ json: { _empty: true, losers: [] } }];\n}\n\nconsole.log(`\ud83d\udd0d Extract Loser Metrics: Processing ${items.length} items`);\n\nfunction findHeader(obj, keywords) {\n  const keys = Object.keys(obj);\n  for (const keyword of keywords) {\n    const found = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));\n    if (found) return found;\n  }\n  return null;\n}\n\nfunction toNumber(x) {\n  const n = Number(String(x || '').replace(/[,$]/g, ''));\n  return Number.isFinite(n) ? n : 0;\n}\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n\n  if (i === 0) console.log('\ud83d\udccb Available keys:', Object.keys(item).join(', '));\n\n  const accountId = item['Account ID'] || item.ootb_account_id || 'Unknown';\n  const accountName = item['Account Name'] || item.ootb_account_name || 'Unknown';\n  const accountOwner = item['Account Owner (name)'] || item.ootb_account_original_owner || 'Unassigned';\n  const accountDomain = item['Account Domain'] || item.ootb_account_domain || '';\n  const engagementLevel = toNumber(item['Account Engagement Level'] || item.ootb_account_engagement_level);\n  const industry = item['Account Industry'] || item.ootb_account_industry || '';\n\n  const annualRevenueKey = findHeader(item, ['annual_revenue', 'annual revenue', 'Annual Revenue']);\n  const annualRevenue = toNumber(annualRevenueKey ? item[annualRevenueKey] : 0);\n\n  const meetings30dKey = findHeader(item, ['meetings_standard_last_30_days', 'Meetings (Last 30 Days)']);\n  const meetings30d = toNumber(meetings30dKey ? item[meetings30dKey] : 0);\n\n  const emails30dKey = findHeader(item, ['count_of_emails_last_30_days', 'Emails (Last 30 Days)']);\n  const emails30d = toNumber(emails30dKey ? item[emails30dKey] : 0);\n\n  const emailsSentKey = findHeader(item, ['emails_sent_last_30', 'Emails Sent (Last 30 Days)']);\n  const emailsSent30d = toNumber(emailsSentKey ? item[emailsSentKey] : 0);\n\n  const emailsReceivedKey = findHeader(item, ['emails_received_last_30', 'Emails Received (Last 30 Days)']);\n  const emailsReceived30d = toNumber(emailsReceivedKey ? item[emailsReceivedKey] : 0);\n\n  const peopleContacted30dKey = findHeader(item, ['external_people_contacted_last_30', 'External People Contacted (Last 30 Days)']);\n  const peopleContacted30d = toNumber(peopleContacted30dKey ? item[peopleContacted30dKey] : 0);\n\n  const peopleContacted7dKey = findHeader(item, ['external_people_contacted_last_7', 'External People Contacted (Last 7 Days)']);\n  const peopleContacted7d = toNumber(peopleContacted7dKey ? item[peopleContacted7dKey] : 0);\n\n  const execsEngagedKey = findHeader(item, ['engaged_executives_external_last_30', 'Engaged Executives (Last 30 Days)']);\n  const execsEngaged30d = toNumber(execsEngagedKey ? item[execsEngagedKey] : 0);\n\n  const execActivitiesKey = findHeader(item, ['executive_activities_last_30', 'Executive Activities (Last 30 Days)']);\n  const execActivities30d = toNumber(execActivitiesKey ? item[execActivitiesKey] : 0);\n\n  const peopleEngagedKey = findHeader(item, ['people_engaged_last_30', 'People Engaged (Last 30 Days)']);\n  const peopleEngaged30d = toNumber(peopleEngagedKey ? item[peopleEngagedKey] : 0);\n\n  const closedLostKey = findHeader(item, ['closed_lost_opportunities_last_fyear', 'Closed Lost Opportunities (Last FYear)']);\n  const closedLost = toNumber(closedLostKey ? item[closedLostKey] : 0);\n\n  const totalActivity = meetings30d + emails30d;\n  const meetingRatio = totalActivity > 0 ? meetings30d / totalActivity : 0;\n  const execRatio = peopleContacted30d > 0 ? execsEngaged30d / peopleContacted30d : 0;\n  const emailResponsiveness = emailsSent30d > 0 ? emailsReceived30d / emailsSent30d : 0;\n  const contactVelocityProxy = peopleContacted30d > 0 ? (peopleContacted7d / peopleContacted30d) * 4.286 : 0;\n  const stakeholderBreadth = peopleContacted30d / 4.3;\n\n  results.push({\n    accountId, accountName, accountOwner, accountDomain, engagementLevel, industry, annualRevenue,\n    meetings30d, emails30d, emailsSent30d, emailsReceived30d, peopleContacted30d, peopleContacted7d,\n    execsEngaged30d, execActivities30d, peopleEngaged30d, closedLost,\n    meetingRatio: Math.round(meetingRatio * 1000) / 1000,\n    execRatio: Math.round(execRatio * 1000) / 1000,\n    emailResponsiveness: Math.round(emailResponsiveness * 1000) / 1000,\n    contactVelocityProxy: Math.round(contactVelocityProxy * 1000) / 1000,\n    stakeholderBreadth: Math.round(stakeholderBreadth * 100) / 100\n  });\n}\n\nresults.sort((a, b) => b.closedLost - a.closedLost);\nconst top30 = results.slice(0, 30);\n\nconsole.log(`\u2705 Extracted ${results.length} total losers, returning top ${top30.length} by closed-lost count`);\n\nreturn [{ json: { losers: top30, totalLosers: top30.length } }];\n"
+      },
+      "id": "aa110003-0006-4c06-c106-d00300010006",
+      "name": "Extract Loser Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3912,
+        2300
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Select Top 15 Winners for MCP Deep Dive\n * Strategy: Sort by annual_revenue, split into 3 tiers (top, mid, bottom), take 5 from each.\n */\n\nconst winnersData = $('Extract Winner Metrics').first().json;\nconst winners = winnersData.winners || [];\n\nif (winners.length === 0) {\n  console.log('\u26a0\ufe0f No winners available for deep dive');\n  return [{ json: { _empty: true } }];\n}\n\nconsole.log(`\ud83c\udfaf Select Top 15 Winners: Starting with ${winners.length} winners`);\n\nconst sorted = [...winners].sort((a, b) => (b.annualRevenue || 0) - (a.annualRevenue || 0));\n\nconst tierSize = Math.ceil(sorted.length / 3);\nconst topTier = sorted.slice(0, tierSize);\nconst midTier = sorted.slice(tierSize, tierSize * 2);\nconst bottomTier = sorted.slice(tierSize * 2);\n\nconst selected = [\n  ...topTier.slice(0, 5),\n  ...midTier.slice(0, 5),\n  ...bottomTier.slice(0, 5)\n].slice(0, 15);\n\nconsole.log(`\u2705 Selected ${selected.length} accounts for MCP deep dive`);\n\nreturn selected.map(a => ({ json: a }));\n"
+      },
+      "id": "aa110003-0007-4c07-c107-d00300010007",
+      "name": "Select Top 15 Winners",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3464,
+        2600
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "aa110003-0008-4c08-c108-d00300010008",
+      "name": "Loop Over Winners",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3.1,
+      "position": [
+        3688,
+        2600
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the activity timeline for account \"{{ $json.accountName }}\" (People.ai Account ID: {{ $json.accountId }}).\n\nUse the People.ai MCP tools:\n1. Call get_recent_account_activity to pull the last 90 days of activity\n2. Call get_engaged_people to see who's involved\n\nFor this account, extract:\n- Total meetings in last 90 days and their cadence (weekly? bi-weekly? sporadic?)\n- Meeting-to-email ratio\n- Number of unique external contacts and their seniority mix\n- Whether new stakeholders were introduced over time (committee formation)\n- Email responsiveness pattern (bi-directional or one-way?)\n- Any executive engagement pattern (when did execs enter, how often?)\n\nOutput as structured JSON:\n{\n  \"account_name\": \"{{ $json.accountName }}\",\n  \"meetings_90d\": N,\n  \"meeting_cadence\": \"weekly/biweekly/sporadic/declining\",\n  \"meeting_ratio\": 0.XX,\n  \"unique_contacts\": N,\n  \"exec_contacts\": N,\n  \"exec_ratio\": 0.XX,\n  \"committee_formed\": true/false,\n  \"new_stakeholders_last_30d\": N,\n  \"email_responsiveness\": 0.XX,\n  \"exec_entry_timing\": \"early/mid/late/never\",\n  \"engagement_arc\": \"accelerating/steady/front-loaded/sporadic\"\n}",
+        "options": {
+          "systemMessage": "You are a sales engagement analyst specializing in activity pattern recognition. Analyze People.ai data to extract structured behavioral patterns. Always output valid JSON."
+        }
+      },
+      "id": "aa110003-0009-4c09-c109-d00300010009",
+      "name": "MCP Deep Dive Analysis",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        3912,
+        2600
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        3928,
+        2800
+      ],
+      "id": "aa110003-0010-4c10-c110-d00300010010",
+      "name": "Chat Model Deep Dive",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.people.ai/mcp",
+        "authentication": "multipleHeadersAuth",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        4056,
+        2800
+      ],
+      "id": "aa110003-0011-4c11-c111-d00300010011",
+      "name": "MCP Client Deep Dive",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "wvV5pwBeIL7f2vLG",
+          "name": "People.ai MCP Multi-Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Parse Deep Dive Results\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || JSON.stringify($input.first().json);\n\nlet parsed = null;\n\ntry {\n  parsed = JSON.parse(aiOutput);\n} catch (e) {\n  const jsonMatch = aiOutput.match(/\\{[\\s\\S]*?\"account_name\"[\\s\\S]*?\\}/i);\n  if (jsonMatch) {\n    try {\n      parsed = JSON.parse(jsonMatch[0]);\n    } catch (e2) {\n      console.log('\u26a0\ufe0f Could not parse JSON from AI response');\n    }\n  }\n}\n\nif (parsed) {\n  console.log(`\u2705 Parsed deep dive for: ${parsed.account_name || 'unknown'}`);\n  return [{ json: parsed }];\n} else {\n  return [{ json: { account_name: 'Parse Error', raw_output: aiOutput, meetings_90d: 0, meeting_cadence: 'unknown', meeting_ratio: 0, unique_contacts: 0, exec_contacts: 0, exec_ratio: 0, committee_formed: false, new_stakeholders_last_30d: 0, email_responsiveness: 0, exec_entry_timing: 'unknown', engagement_arc: 'unknown' } }];\n}\n"
+      },
+      "id": "aa110003-0012-4c12-c112-d00300010012",
+      "name": "Parse Deep Dive Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4136,
+        2600
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Aggregate Deep Dive Results\n */\n\nconst items = $input.all();\n\nconst deepDiveResults = items\n  .filter(item => !item.json._empty && item.json.account_name !== 'Parse Error')\n  .map(item => item.json);\n\nconsole.log(`\u2705 Aggregated ${deepDiveResults.length} valid deep dive results`);\n\nreturn [{ json: { deepDiveResults, totalDeepDives: deepDiveResults.length } }];\n"
+      },
+      "id": "aa110003-0013-4c13-c113-d00300010013",
+      "name": "Aggregate Deep Dive Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4360,
+        2600
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4584,
+        2300
+      ],
+      "id": "aa110003-0014-4c14-c114-d00300010014",
+      "name": "Merge Calibration Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Prepare data for the Win Pattern Fingerprint AI analysis.\n */\n\nconst items = $input.all();\nconst output = { winners: [], losers: [], deepDiveResults: [], totalWinners: 0, totalLosers: 0, totalDeepDives: 0 };\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n  if (item.winners) { output.winners = item.winners; output.totalWinners = item.totalWinners || 0; }\n  if (item.losers) { output.losers = item.losers; output.totalLosers = item.totalLosers || 0; }\n  if (item.deepDiveResults) { output.deepDiveResults = item.deepDiveResults; output.totalDeepDives = item.totalDeepDives || 0; }\n}\n\nconsole.log(`\ud83d\udce6 Merged: ${output.totalWinners} winners, ${output.totalLosers} losers, ${output.totalDeepDives} deep dives`);\n\nreturn [{ json: output }];\n"
+      },
+      "id": "aa110003-0015-4c15-c115-d00300010015",
+      "name": "Format Calibration Merged Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4808,
+        2300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an ICP analyst generating a Win Pattern Fingerprint by comparing closed-won accounts against closed-lost accounts.\n\n## WINNERS COHORT (accounts that bought)\n{{ JSON.stringify($json.winners, null, 2) }}\n\n## LOSERS COHORT (accounts that did NOT buy)\n{{ JSON.stringify($json.losers, null, 2) }}\n\n## DEEP DIVE \u2014 Activity Timeline Analysis ({{ $json.totalDeepDives }} winner accounts)\n{{ JSON.stringify($json.deepDiveResults, null, 2) }}\n\n## YOUR TASK\n\nCompare the two cohorts across every behavioral dimension and identify the patterns that MOST distinguish winners from losers. This is not about engagement volume \u2014 it's about engagement QUALITY and PATTERN.\n\nFor each dimension, compute:\n- Winner median and range\n- Loser median and range\n- The GAP (how much better are winners?)\n- Statistical significance (is this a real pattern or noise?)\n\nAlso analyze the deep dive timelines to identify:\n- When do executives typically enter the conversation for winners?\n- What does the meeting cadence look like for winners vs what we'd expect for losers?\n- Do winners show committee formation (new stakeholders over time)?\n- What's the engagement arc? (accelerating, steady, front-loaded)\n\n## OUTPUT FORMAT\n\n\ud83c\udfaf WIN PATTERN FINGERPRINT\nCalibrated: {{ new Date().toISOString().split('T')[0] }}\nBased on: {{ $json.totalWinners }} winners vs {{ $json.totalLosers }} losers, last 12 months\nDeep dive: {{ $json.totalDeepDives }} winner activity timelines analyzed\n\n\ud83d\udcca BEHAVIORAL BENCHMARKS\n\n| Dimension | Winner Median | Winner Range | Loser Median | Gap | Signal Strength |\n|-----------|--------------|-------------|-------------|-----|-----------------|\n| Meeting Quality Ratio | X% | X-X% | X% | +X% | Strong/Moderate/Weak |\n| Executive Coverage | X% | X-X% | X% | +X% | Strong/Moderate/Weak |\n| Stakeholder Breadth | X/wk | X-X/wk | X/wk | +X/wk | Strong/Moderate/Weak |\n| Email Responsiveness | X | X-X | X | +X | Strong/Moderate/Weak |\n| Contact Velocity | X | X-X | X | +X | Strong/Moderate/Weak |\n| Engagement Level | X | X-X | X | +X | Strong/Moderate/Weak |\n\n\ud83c\udfc6 TOP DIFFERENTIATORS (ranked by signal strength)\n\n1. **{Pattern}:** Winners show {X} vs losers at {Y}. This is the strongest predictor.\n2. **{Pattern}:** {Description}\n3. **{Pattern}:** {Description}\n4. **{Pattern}:** {Description}\n5. **{Pattern}:** {Description}\n\n\u2696\ufe0f RECOMMENDED SCORING WEIGHTS\n- Meeting Quality Ratio: {weight}% \u2014 {why}\n- Executive Coverage: {weight}% \u2014 {why}\n- Email Responsiveness: {weight}% \u2014 {why}\n- Contact Velocity: {weight}% \u2014 {why}\n- Stakeholder Breadth: {weight}% \u2014 {why}\n\n\ud83d\udcc8 WINNER ENGAGEMENT ARC (from deep dive)\n- Typical meeting cadence: {pattern}\n- Executive entry timing: {when execs typically appear}\n- Committee formation: {how new stakeholders are introduced}\n- Engagement shape: {accelerating/steady/front-loaded}\n\n\ud83d\udeab ANTI-PATTERNS (what losers look like)\n1. {Anti-pattern}: {Description with numbers}\n2. {Anti-pattern}: {Description}\n3. {Anti-pattern}: {Description}\n\n\ud83c\udfaf ICP SCORING THRESHOLDS\n- STRONG FIT (>0.70): {criteria}\n- MODERATE FIT (0.40-0.70): {criteria}\n- WEAK FIT (<0.40): {criteria}",
+        "options": {
+          "systemMessage": "You are a world-class ICP analyst. Be precise, data-driven, and specific. Use actual numbers from the data. Every claim must be backed by the cohort comparison data."
+        }
+      },
+      "id": "aa110003-0016-4c16-c116-d00300010016",
+      "name": "Generate Win Pattern Fingerprint",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        5032,
+        2300
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        5048,
+        2500
+      ],
+      "id": "aa110003-0017-4c17-c117-d00300010017",
+      "name": "Chat Model Fingerprint",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Format Slack Message for Calibration\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $node['Workflow Parameters'].json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83c\udfaf *ICP Calibration Complete*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Save this fingerprint \\u2014 it's now the reference for ICP Fit scoring._\\n`;\nmessage += `_Powered by ICP Calibration \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $node['Workflow Parameters'].json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawFingerprint: aiOutput } }];\n"
+      },
+      "id": "aa110003-0018-4c18-c118-d00300010018",
+      "name": "Format Calibration Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5256,
+        2168
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Workflow Parameters'].json.response_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ response_type: 'in_channel', text: $json.message, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "aa110003-0019-4c19-c119-d00300010019",
+      "name": "Post Calibration to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5480,
+        2068
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Format Email for Calibration\n */\n\nconst aiOutput = $input.first().json.rawFingerprint || $input.first().json.message || '';\nconst userName = $node['Workflow Parameters'].json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/\\|(.+)\\|/g, function(match) {\n      const cells = match.split('|').filter(c => c.trim());\n      if (cells.every(c => /^[\\s-:]+$/.test(c))) return '';\n      const isHeader = cells.every(c => /^\\s*[A-Z]/.test(c.trim()));\n      const tag = isHeader ? 'th' : 'td';\n      const style = isHeader\n        ? 'style=\"padding: 10px 12px; background-color: #7c3aed; color: white; font-size: 12px; text-align: left; font-weight: 600;\"'\n        : 'style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px;\"';\n      return '<tr>' + cells.map(c => `<${tag} ${style}>${c.trim()}</${tag}>`).join('') + '</tr>';\n    })\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<tr>')) {\n    html = html.replace(/(<tr>.*?<\\/tr>)+/gs, '<table style=\"width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid #e5e7eb;\">$&</table>');\n  }\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>ICP Calibration</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83c\udfaf ICP Calibration Complete</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Win Pattern Fingerprint \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by ICP Calibration \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `ICP Calibration - Win Pattern Fingerprint - ${today}` } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5256,
+        2432
+      ],
+      "id": "aa110003-0020-4c20-c120-d00300010020",
+      "name": "Format Calibration Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "scott.metcalf@people.ai",
+        "toEmail": "={{ $node[\"Workflow Parameters\"].json.user_email }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.htmlEmail }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        5480,
+        2432
+      ],
+      "id": "aa110003-0021-4c21-c121-d00300010021",
+      "name": "Send Calibration Email",
+      "credentials": {
+        "smtp": {
+          "id": "PfRzHYltm16I6dan",
+          "name": "SMTP(scott.metcalf@people.ai)"
+        }
+      }
+    },
+
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node['Get People.ai Auth Token'].json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  object: 'account',\n  columns: [\n    { slug: 'ootb_account_id' },\n    { slug: 'ootb_account_name' },\n    { slug: 'ootb_account_original_owner' },\n    { slug: 'ootb_account_domain' },\n    { slug: 'ootb_account_industry' },\n    { slug: 'ootb_account_annual_revenue', variation_id: 'ootb_account_annual_revenue_any_time' },\n    { slug: 'ootb_account_type' },\n    { slug: 'ootb_account_engagement_level' },\n    { slug: 'ootb_account_count_of_meetings_standard', variation_id: 'ootb_account_count_of_meetings_standard_last_30_days' },\n    { slug: 'ootb_account_count_of_emails', variation_id: 'ootb_account_count_of_emails_last_30_days' },\n    { slug: 'ootb_account_count_of_external_people_contacted', variation_id: 'ootb_account_count_of_external_people_contacted_last_30_days' },\n    { slug: 'ootb_account_closed_won_opportunities', variation_id: 'ootb_account_closed_won_opportunities_last_fyear' },\n    { slug: 'ootb_account_closed_lost_opportunities', variation_id: 'ootb_account_closed_lost_opportunities_last_fyear' },\n    { slug: 'ootb_account_open_opportunities', variation_id: 'ootb_account_open_opportunities_any_time' }\n  ],\n  filter: {\n    $and: [\n      {\n        attribute: {\n          slug: 'ootb_account_engagement_level'\n        },\n        clause: { $lt: 10 }\n      },\n      {\n        attribute: {\n          slug: 'ootb_account_annual_revenue',\n          variation_id: 'ootb_account_annual_revenue_any_time'\n        },\n        clause: { $gt: 0 }\n      }\n    ]\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "aa110004-0001-4d01-d101-e00400010001",
+      "name": "Get Low Engagement Accounts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3464,
+        3100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const csvData = $json.data || '';\n\nif (!csvData || csvData.trim().length === 0) {\n  console.log('\u26a0\ufe0f No data returned from API');\n  return [{ json: { _empty: true } }];\n}\n\nfunction parseCSVLine(line) {\n  const vals = [];\n  let inQuotes = false;\n  let current = '';\n\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n\n    if (c === '\"' && (i === 0 || line[i - 1] !== '\\\\')) {\n      inQuotes = !inQuotes;\n      continue;\n    }\n\n    if (c === ',' && !inQuotes) {\n      vals.push(current);\n      current = '';\n      continue;\n    }\n\n    current += c;\n  }\n\n  vals.push(current);\n  return vals.map(v => v.trim());\n}\n\nconst lines = csvData.trim().split(/\\r?\\n/);\nconst headers = parseCSVLine(lines[0]);\n\nconsole.log('\ud83d\udcca Target Accounts CSV Headers:', headers);\n\nconst parsedAccounts = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length !== headers.length) continue;\n\n  const account = {};\n  headers.forEach((h, idx) => {\n    account[h] = vals[idx] || '';\n  });\n\n  parsedAccounts.push(account);\n}\n\nconsole.log(`\u2705 Parsed ${parsedAccounts.length} low-engagement accounts from CSV`);\n\nif (parsedAccounts.length === 0) {\n  return [{ json: { _empty: true } }];\n}\nreturn parsedAccounts.map(a => ({ json: a }));\n"
+      },
+      "id": "aa110004-0002-4d02-d102-e00400010002",
+      "name": "Parse Target Accounts CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3688,
+        3100
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Extract Target Data\n * Extract fields, compute firmographic score, sort by revenue desc, take top 30\n */\n\nconst items = $input.all();\n\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  console.log('\u26a0\ufe0f No target account data to extract');\n  return [{ json: { _empty: true, targets: [] } }];\n}\n\nconsole.log(`\ud83d\udd0d Extract Target Data: Processing ${items.length} items`);\n\nfunction findHeader(obj, keywords) {\n  const keys = Object.keys(obj);\n  for (const keyword of keywords) {\n    const found = keys.find(k => k.toLowerCase().includes(keyword.toLowerCase()));\n    if (found) return found;\n  }\n  return null;\n}\n\nfunction toNumber(x) {\n  const n = Number(String(x || '').replace(/[,$]/g, ''));\n  return Number.isFinite(n) ? n : 0;\n}\n\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i].json;\n\n  if (i === 0) console.log('\ud83d\udccb Available keys:', Object.keys(item).join(', '));\n\n  const accountId = item['Account ID'] || item.ootb_account_id || 'Unknown';\n  const accountName = item['Account Name'] || item.ootb_account_name || 'Unknown';\n  const accountOwner = item['Account Owner (name)'] || item.ootb_account_original_owner || 'Unassigned';\n  const accountDomain = item['Account Domain'] || item.ootb_account_domain || '';\n  const industry = item['Account Industry'] || item.ootb_account_industry || '';\n  const accountType = item['Account Type'] || item.ootb_account_type || '';\n  const engagementLevel = toNumber(item['Account Engagement Level'] || item.ootb_account_engagement_level);\n\n  const annualRevenueKey = findHeader(item, ['annual_revenue', 'annual revenue', 'Annual Revenue']);\n  const annualRevenue = toNumber(annualRevenueKey ? item[annualRevenueKey] : 0);\n\n  const meetings30dKey = findHeader(item, ['meetings_standard_last_30_days', 'Meetings (Last 30 Days)']);\n  const meetings30d = toNumber(meetings30dKey ? item[meetings30dKey] : 0);\n\n  const emails30dKey = findHeader(item, ['count_of_emails_last_30_days', 'Emails (Last 30 Days)']);\n  const emails30d = toNumber(emails30dKey ? item[emails30dKey] : 0);\n\n  const peopleContacted30dKey = findHeader(item, ['external_people_contacted_last_30', 'External People Contacted (Last 30 Days)']);\n  const peopleContacted30d = toNumber(peopleContacted30dKey ? item[peopleContacted30dKey] : 0);\n\n  const closedWonKey = findHeader(item, ['closed_won_opportunities_last_fyear', 'Closed Won Opportunities (Last FYear)']);\n  const closedWon = toNumber(closedWonKey ? item[closedWonKey] : 0);\n\n  const closedLostKey = findHeader(item, ['closed_lost_opportunities_last_fyear', 'Closed Lost Opportunities (Last FYear)']);\n  const closedLost = toNumber(closedLostKey ? item[closedLostKey] : 0);\n\n  const openOppsKey = findHeader(item, ['open_opportunities', 'Open Opportunities']);\n  const openOpps = toNumber(openOppsKey ? item[openOppsKey] : 0);\n\n  // Compute firmographic score\n  let firmoScore = 0;\n  const strongIndustries = ['technology', 'financial services', 'healthcare', 'manufacturing', 'software', 'banking'];\n  if (strongIndustries.some(ind => industry.toLowerCase().includes(ind))) firmoScore += 30;\n  else if (industry) firmoScore += 15;\n\n  if (annualRevenue >= 50000000 && annualRevenue <= 500000000) firmoScore += 30; // sweet spot\n  else if (annualRevenue > 500000000 && annualRevenue <= 2000000000) firmoScore += 25; // enterprise\n  else if (annualRevenue >= 10000000) firmoScore += 15;\n\n  if (closedWon === 0 && closedLost === 0) firmoScore += 20; // greenfield\n  else if (closedLost > 0 && closedWon === 0) firmoScore += 10; // revisit\n\n  if (openOpps === 0) firmoScore += 10; // no active opp = untapped\n\n  results.push({\n    accountId, accountName, accountOwner, accountDomain, industry, accountType,\n    engagementLevel, annualRevenue, meetings30d, emails30d, peopleContacted30d,\n    closedWon, closedLost, openOpps, firmoScore\n  });\n}\n\n// Sort by revenue descending, take top 30\nresults.sort((a, b) => (b.annualRevenue || 0) - (a.annualRevenue || 0));\nconst top30 = results.slice(0, 30);\n\nconsole.log(`\u2705 Extracted ${results.length} total targets, returning top ${top30.length} by revenue`);\n\nreturn [{ json: { targets: top30, totalTargets: top30.length } }];\n"
+      },
+      "id": "aa110004-0003-4d03-d103-e00400010003",
+      "name": "Extract Target Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3912,
+        3100
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a targeting analyst identifying high-priority accounts that should be pursued but currently have zero or minimal engagement.\n\nACCOUNT DATA (low/zero engagement accounts):\n{{ JSON.stringify($json.targets, null, 2) }}\n\nYOUR TASK:\n1. Score each account on firmographic ICP fit:\n   - Industry alignment (Technology, Financial Services, Healthcare, Manufacturing = strong)\n   - Revenue range ($50M-$500M = sweet spot, $500M-$2B = enterprise tier)\n   - Account type (Prospect with no prior history = greenfield)\n   - Prior history (closed-lost >6 months ago = worth revisiting)\n\n2. Rank the top 5 accounts by targeting priority\n\n3. For each top account, provide:\n   - WHY it matches the ICP (firmographic reasons)\n   - Recommended outreach approach (who to target, what angle)\n   - Any red flags (recent closed-lost, do-not-contact indicators)\n\nOUTPUT FORMAT:\n\n\ud83d\ude80 **TOP 5 TARGET ACCOUNTS** \u2014 High-ICP accounts with zero engagement\n\n**1. {Account Name}** \u2014 {Industry} | ${Annual Revenue}\n   ICP Match: {Strong/Moderate} \u2014 {why}\n   Status: {Greenfield / Revisit (lost Xmo ago) / Dormant}\n   Approach: {Specific recommendation}\n\n**2. {Account Name}** \u2014 {Industry} | ${Annual Revenue}\n   ICP Match: {Strong/Moderate} \u2014 {why}\n   Status: {status}\n   Approach: {recommendation}\n\n... (repeat for top 5)\n\n\ud83d\udcca *{{ $json.totalTargets }} total unengaged accounts match ICP profile | Estimated untapped pipeline: ${X}M*",
+        "options": {
+          "systemMessage": "You are a targeting analyst specializing in ICP-based account prioritization. Be specific about why each account matches the ICP and what outreach approach to use."
+        }
+      },
+      "id": "aa110004-0004-4d04-d104-e00400010004",
+      "name": "Analyze Target Accounts",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4136,
+        3100
+      ],
+      "alwaysOutputData": true,
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        4152,
+        3300
+      ],
+      "id": "aa110004-0005-4d05-d105-e00400010005",
+      "name": "Chat Model Targets",
+      "credentials": {
+        "anthropicApi": {
+          "id": "rlAz7ZSl4y6AwRUq",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Format Targets Slack Message\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $node['Workflow Parameters'].json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83d\ude80 *Target Account Surfacing*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $node['Workflow Parameters'].json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawTargets: aiOutput } }];\n"
+      },
+      "id": "aa110004-0006-4d06-d106-e00400010006",
+      "name": "Format Targets Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4360,
+        3000
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Workflow Parameters'].json.response_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ response_type: 'in_channel', text: $json.message, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {}
+      },
+      "id": "aa110004-0007-4d07-d107-e00400010007",
+      "name": "Post Targets to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4584,
+        2900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Format Targets Email\n */\n\nconst aiOutput = $input.first().json.rawTargets || $input.first().json.message || '';\nconst userName = $node['Workflow Parameters'].json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Target Account Surfacing</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83d\ude80 Target Account Surfacing</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Unengaged ICP Matches \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Target Account Surfacing - ${today}` } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4360,
+        3200
+      ],
+      "id": "aa110004-0008-4d08-d108-e00400010008",
+      "name": "Format Targets Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "scott.metcalf@people.ai",
+        "toEmail": "={{ $node[\"Workflow Parameters\"].json.user_email }}",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.htmlEmail }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        4584,
+        3200
+      ],
+      "id": "aa110004-0009-4d09-d109-e00400010009",
+      "name": "Send Targets Email",
+      "credentials": {
+        "smtp": {
+          "id": "PfRzHYltm16I6dan",
+          "name": "SMTP(scott.metcalf@people.ai)"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slash Command Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Slash Command Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Slash Command Data": {
+      "main": [
+        [
+          {
+            "node": "Get User Email from Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Email from Slack": {
+      "main": [
+        [
+          {
+            "node": "Merge User Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge User Context": {
+      "main": [
+        [
+          {
+            "node": "Command Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command Router": {
+      "main": [
+        [
+          {
+            "node": "Route by Subcommand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Subcommand": {
+      "main": [
+        [
+          {
+            "node": "Generate Ack Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Ack Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Ack Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Help Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Ack Message": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Slash Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge Slash Command": {
+      "main": [
+        [
+          {
+            "node": "Workflow Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Parameters": {
+      "main": [
+        [
+          {
+            "node": "Get People.ai Auth Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get People.ai Auth Token": {
+      "main": [
+        [
+          {
+            "node": "Branch After Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch After Auth": {
+      "main": [
+        [
+          {
+            "node": "Get Account Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Winners",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Losers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Low Engagement Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Get Account Data": {
+      "main": [
+        [
+          {
+            "node": "Parse Accounts CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Accounts CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Account Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Account Data": {
+      "main": [
+        [
+          {
+            "node": "Filter Neglected Accounts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Surging Accounts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Expansion Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Neglected Accounts": {
+      "main": [
+        [
+          {
+            "node": "MCP Analyze Neglected Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Analyze Neglected Account": {
+      "main": [
+        [
+          {
+            "node": "Pass Through Neglected Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Through Neglected Metadata": {
+      "main": [
+        [
+          {
+            "node": "Parse Neglected AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Neglected AI Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Neglected Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Neglected Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Digest Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model Neglected": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCP Analyze Neglected Account",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client Neglected": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Analyze Neglected Account",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Surging Accounts": {
+      "main": [
+        [
+          {
+            "node": "MCP Analyze Surging Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Analyze Surging Account": {
+      "main": [
+        [
+          {
+            "node": "Pass Through Surging Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Through Surging Metadata": {
+      "main": [
+        [
+          {
+            "node": "Parse Surging AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Surging AI Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Surging Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Surging Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Digest Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Chat Model Surging": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCP Analyze Surging Account",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client Surging": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Analyze Surging Account",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Expansion Candidates": {
+      "main": [
+        [
+          {
+            "node": "MCP Analyze Expansion Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Analyze Expansion Account": {
+      "main": [
+        [
+          {
+            "node": "Pass Through Expansion Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Through Expansion Metadata": {
+      "main": [
+        [
+          {
+            "node": "Parse Expansion AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Expansion AI Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Expansion Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Expansion Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Digest Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Chat Model Expansion": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCP Analyze Expansion Account",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client Expansion": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Analyze Expansion Account",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Digest Results": {
+      "main": [
+        [
+          {
+            "node": "Format Digest Merged Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Digest Merged Data": {
+      "main": [
+        [
+          {
+            "node": "Format Digest Slack Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Digest Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post Digest to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Digest Email": {
+      "main": [
+        [
+          {
+            "node": "Send Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Get Winners": {
+      "main": [
+        [
+          {
+            "node": "Parse Winners CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Winners CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Winner Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Winner Metrics": {
+      "main": [
+        [
+          {
+            "node": "Merge Calibration Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Select Top 15 Winners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Losers": {
+      "main": [
+        [
+          {
+            "node": "Parse Losers CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Losers CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Loser Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Loser Metrics": {
+      "main": [
+        [
+          {
+            "node": "Merge Calibration Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Select Top 15 Winners": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Winners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Winners": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Deep Dive Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MCP Deep Dive Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Deep Dive Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse Deep Dive Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model Deep Dive": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "MCP Deep Dive Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client Deep Dive": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Deep Dive Analysis",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Deep Dive Results": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Winners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Deep Dive Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Calibration Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Calibration Data": {
+      "main": [
+        [
+          {
+            "node": "Format Calibration Merged Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Calibration Merged Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Win Pattern Fingerprint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Win Pattern Fingerprint": {
+      "main": [
+        [
+          {
+            "node": "Format Calibration Slack Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Calibration Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model Fingerprint": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Win Pattern Fingerprint",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Calibration Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post Calibration to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Calibration Email": {
+      "main": [
+        [
+          {
+            "node": "Send Calibration Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Get Low Engagement Accounts": {
+      "main": [
+        [
+          {
+            "node": "Parse Target Accounts CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Target Accounts CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Target Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Target Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze Target Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Target Accounts": {
+      "main": [
+        [
+          {
+            "node": "Format Targets Slack Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Targets Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model Targets": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze Target Accounts",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Targets Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post Targets to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Targets Email": {
+      "main": [
+        [
+          {
+            "node": "Send Targets Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "unified-v1-2026-0330-0001",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4dd7a54cbf3c3ec35a460541c7470b86ad06fde74ed99585c44045ec74f97461"
+  },
+  "id": "AI-AccountInsights-Unified",
+  "tags": []
+}
