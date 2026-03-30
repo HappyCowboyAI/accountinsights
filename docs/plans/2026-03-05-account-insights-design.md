@@ -363,7 +363,7 @@ Action: {Specific recommendation with timeline}
 
 ---
 
-## Slack Bot (`/account-insights`)
+## Slack Bot (`/ai`)
 
 Same n8n orchestration pattern as Opportunity Insights.
 
@@ -375,7 +375,7 @@ Same n8n orchestration pattern as Opportunity Insights.
 | Surging Accounts | Accounts with momentum score > 1.5 | `prompts/surging_account_analysis.md` |
 | Expansion Candidates | Customer accounts with high activity-to-revenue ratio | `prompts/expansion_account_analysis.md` |
 
-**Flow:** `/account-insights` -> immediate ack -> 3 parallel branches -> Claude Sonnet analysis via People.ai MCP -> formatted Slack digest + email summary.
+**Flow:** `/ai` -> immediate ack -> 3 parallel branches -> Claude Sonnet analysis via People.ai MCP -> formatted Slack digest + email summary.
 
 ---
 
@@ -401,7 +401,7 @@ Mirror the Opportunity Insights Launch Hub structure with these pages:
 4. Account Insights - EDB Dashboard Spec
 5. SalesAI Signals for Account Insights
 6. Account Insights - Custom Metrics Recommendations
-7. Account Insights - Slack Bot Demo (`/account-insights`)
+7. Account Insights - Slack Bot Demo (`/ai`)
 8. Claude AI Project - How the Dashboard Works
 9. Sales Enablement - Sales Leader Persona (with child pages)
 10. Sales Enablement - RevOps Persona (with child pages)

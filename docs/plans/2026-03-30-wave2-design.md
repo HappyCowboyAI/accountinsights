@@ -114,7 +114,7 @@ Add 2 new widgets to the Account Insights dashboard:
 
 ### Slack Bot Updates
 
-Add a 4th parallel branch to the `/account-insights` Slack bot:
+Add a 4th parallel branch to the `/ai` Slack bot:
 
 **Branch 4: Compound Alerts**
 - Detect accounts with compound signal conditions

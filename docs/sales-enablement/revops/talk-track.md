@@ -113,7 +113,7 @@ Walk through briefly — they've heard the problems, now name the solutions:
 > "The insights surface in three ways:
 > - **Pre-built EDB tables** — 5 category-specific views plus a composite summary table. Filtered, sorted, immediately actionable.
 > - **SalesAI Signals** that appear directly on the account record — so reps see the insight where they're already working.
-> - **A Slack digest** that any rep can trigger on demand — type `/account-insights` and get a full analysis posted to their channel in under 3 minutes."
+> - **A Slack digest** that any rep can trigger on demand — type `/ai` and get a full analysis posted to their channel in under 3 minutes."
 
 **Why this works for RevOps:** You're speaking to their operational concerns — no new integrations, uses existing data, transparent scoring, multiple delivery surfaces. The dashboard comparison directly addresses the "we already have this" objection before it comes up.
 

@@ -45,7 +45,7 @@ Now you're coaching on data, not memory.
 
 1. **On the account** — SalesAI Signals appear on the account record. The rep opens an account and the most critical insight is already there.
 
-2. **In Slack** — `/account-insights` delivers a full account intelligence digest in under 3 minutes. Neglected accounts, surging accounts, expansion candidates.
+2. **In Slack** — `/ai` delivers a full account intelligence digest in under 3 minutes. Neglected accounts, surging accounts, expansion candidates.
 
 3. **In account reviews** — Pre-filtered views showing exactly which accounts need attention and why. Sort by ICP fit, neglect severity, or expansion potential.
 

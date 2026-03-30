@@ -62,7 +62,7 @@ Write the full project guidance file. Model on `/Users/scottmetcalf/projects/opp
 - Working with EDB Tables section (Glass API pattern, `/glass/api/v2/object_explore/create`, account object type, opens `/reporting/account/{id}`)
 - Working with Custom Metrics section (FormulaMetric + TimeRangeMetric, deploy via Admin API)
 - Working with SalesAI Signals section (unified vs individual, 5 categories)
-- Slack Bot section (`/account-insights`, 3 branches: neglected, surging, expansion)
+- Slack Bot section (`/ai`, 3 branches: neglected, surging, expansion)
 - Confluence Documentation links (to be populated)
 - Required Credentials table (same as OI)
 
@@ -1036,7 +1036,7 @@ Create these child pages under the Launch Hub:
 3. Account Insights - EDB Dashboard Spec
 4. SalesAI Signals for Account Insights
 5. Account Insights - Custom Metrics Recommendations
-6. Account Insights - Slack Bot Demo (/account-insights)
+6. Account Insights - Slack Bot Demo (/ai)
 7. Claude AI Project - How the Dashboard Works
 8. Sales Enablement - Sales Leader Persona
 9. Sales Enablement - RevOps Persona

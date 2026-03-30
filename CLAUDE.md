@@ -17,9 +17,9 @@ This is a People.ai AI Play launched as a 30-day sprint. It uses only People.ai 
 | Metrics | **Custom FormulaMetrics** | 14 computed signals (7 base + 5 composite scores + 2 buying committee) |
 | Intelligence | **SalesAI Signals** | LLM-powered analysis using Claude + OOTB metric context |
 | Dashboard | **EDB Board Creator** | 15-widget HTML bookmarklet dashboard |
-| Orchestration | **n8n** | Slack bot workflow (`/account-insights` slash command) |
+| Orchestration | **n8n** | Slack bot workflow (`/ai` slash command) |
 | Reasoning | **Claude (Anthropic API)** | AI analysis of accounts via Claude Sonnet 4.5 + People.ai MCP |
-| Delivery | **Slack** | `/account-insights` command, channel posts, email digests |
+| Delivery | **Slack** | `/ai` command, channel posts, email digests |
 
 There is no custom backend code. EDB tables/dashboards deploy via bookmarklets. The Slack bot runs as an n8n workflow. This is an enhanced architecture that adds a composite scoring layer on top of the Opportunity Insights foundation (EDB tables + metrics + signals + dashboard + Slack bot).
 
@@ -56,7 +56,7 @@ There is no custom backend code. EDB tables/dashboards deploy via bookmarklets. 
   - `compound/` — 4 cross-category compound signals (Wave 2)
 - `dashboards/` — EDB dashboard HTML board creator
 - `prompts/` — Claude prompt templates for AI analysis (neglected, surging, expansion)
-- `n8n/workflows/` — n8n workflow JSON for the /account-insights Slack bot
+- `n8n/workflows/` — n8n workflow JSON for the /ai Slack bot
   - `account_insights_v1.json` — 37-node workflow, 3 parallel branches
 - `docs/` — Setup guides, design specs, implementation plans
   - `plans/` — Design doc, implementation plan, Wave 2 design
@@ -106,9 +106,9 @@ Signal configurations in `signals/` define the prompt, metrics context, and outp
 
 Note: Account Insights has 5 insight categories (not 4 like Opportunity Insights), plus Wave 2 adds Buying Committee Coverage and 4 Cross-Category Compound Signals.
 
-## Slack Bot (/account-insights)
+## Slack Bot (/ai)
 
-The n8n workflow in `n8n/workflows/` implements the `/account-insights` Slack slash command:
+The n8n workflow in `n8n/workflows/` implements the `/ai` Slack slash command:
 1. Immediate ⏳ acknowledgment (Slack requires response within 3 seconds)
 2. Authenticates with People.ai Insights API
 3. Runs 3 parallel analysis branches (Neglected Accounts, Surging Accounts, Expansion Candidates)
@@ -129,7 +129,7 @@ All design specs live in Confluence under the CS space (spaceId: 14057473):
 | EDB Dashboard Spec | 59406549097 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549097) |
 | SalesAI Signals for Account Insights | 59406549116 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549116) |
 | Custom Metrics Recommendations | 59406549135 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406549135) |
-| Slack Bot Demo (/account-insights) | 59406680118 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406680118) |
+| Slack Bot Demo (/ai) | 59406680118 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406680118) |
 | How the Account Insights Dashboard Works | 59406581797 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406581797) |
 | Sales Enablement — Sales Leader Persona | 59406188590 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406188590) |
 | Sales Enablement — RevOps Persona | 59406352424 | [Link](https://peopleai.atlassian.net/wiki/spaces/CS/pages/59406352424) |

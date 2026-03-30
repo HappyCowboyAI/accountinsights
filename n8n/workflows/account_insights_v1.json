@@ -4,7 +4,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "account-insights-bot",
+        "path": "ai-bot",
         "responseMode": "responseNode",
         "options": {}
       },

@@ -45,7 +45,7 @@ Account Insights analyzes your existing People.ai engagement metrics — no new 
 
 2. **SalesAI Signals** — AI-generated insight cards that appear directly on the account record. Reps see the most critical pattern with a specific recommended action.
 
-3. **Slack Digest** — On-demand account intelligence. Any rep types `/account-insights` and gets a full analysis posted to their channel — neglected accounts, surging accounts, expansion candidates — in under 3 minutes.
+3. **Slack Digest** — On-demand account intelligence. Any rep types `/ai` and gets a full analysis posted to their channel — neglected accounts, surging accounts, expansion candidates — in under 3 minutes.
 
 ---
 

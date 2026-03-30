@@ -107,7 +107,7 @@ Tailor to their team size if you know it:
 
 > **On the account itself** — SalesAI Signals appear right on the account record. When a rep opens an account, the most critical insight is already there with a recommended action.
 
-> **In Slack** — any rep types `/account-insights` and gets a full account intelligence digest in under 3 minutes. Neglected accounts, surging accounts, expansion candidates — all in one message.
+> **In Slack** — any rep types `/ai` and gets a full account intelligence digest in under 3 minutes. Neglected accounts, surging accounts, expansion candidates — all in one message.
 
 > **In your account reviews** — pre-built views that show you exactly which accounts need attention and why. Sort by ICP fit, sort by neglect severity, sort by expansion potential. Instead of reviewing accounts alphabetically, you're reviewing by intelligence."
 

@@ -63,7 +63,7 @@
 
 > "That's exactly why the delivery model matters. If this were just another tab in People.ai, you'd be right — most reps won't go find it.
 >
-> That's why there are three delivery surfaces. SalesAI Signals appear directly on the account record — the rep doesn't go looking for the insight, it comes to them where they're already working. The Slack digest is on-demand — type `/account-insights` and get a full analysis without leaving Slack. And the EDB tables are for your coverage reviews — not for reps to self-serve, but for managers to use in account reviews and QBRs.
+> That's why there are three delivery surfaces. SalesAI Signals appear directly on the account record — the rep doesn't go looking for the insight, it comes to them where they're already working. The Slack digest is on-demand — type `/ai` and get a full analysis without leaving Slack. And the EDB tables are for your coverage reviews — not for reps to self-serve, but for managers to use in account reviews and QBRs.
 >
 > The question isn't 'will reps use a new tool?' It's 'will reps act on an insight that shows up in their workflow?' And the answer to that is usually yes — especially when their manager is looking at the same account health data in the review."
 
