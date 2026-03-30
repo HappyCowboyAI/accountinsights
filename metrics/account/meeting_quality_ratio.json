@@ -1,0 +1,65 @@
+{
+  "slug": "account_meeting_quality_ratio",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a / (a + b)",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "meeting"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Meeting Quality Ratio",
+  "description": "Proportion of engagement that is meeting-based vs email-based. Meetings represent deeper, higher-commitment engagement. Accounts with high meeting ratios are in real conversations, not surface-level email exchanges. Key differentiator from raw engagement score — two accounts at engagement 70 look identical, but one with 45% meetings and one with 5% meetings are fundamentally different prospects.",
+  "coaching_text": "Above 0.40 = deep engagement, meetings dominate — strong buying signal. 0.20-0.40 = balanced mix. Below 0.20 = email-heavy, low commitment engagement — may be responsive but not actively evaluating.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "icp_fit_profiling",
+    "tier": 1,
+    "maps_to_insight": ["icp_fit_profiling", "engagement_momentum"],
+    "best_fit_tables": ["Table 1: ICP Fit Profiling"],
+    "thresholds": {
+      "deep": 0.40,
+      "balanced": 0.20,
+      "shallow": 0.00
+    },
+    "why": "Engagement score treats all activity equally. This metric distinguishes high-commitment engagement (meetings) from low-commitment (email). Closed-won accounts typically show 35-50% meeting ratios."
+  }
+}

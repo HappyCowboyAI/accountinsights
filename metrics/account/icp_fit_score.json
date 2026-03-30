@@ -4,56 +4,65 @@
   "definition": {
     "attribute_type": "FormulaMetric",
     "data_type": "double",
-    "f": "0.30 * a + 0.25 * b + 0.25 * c + 0.20 * d",
+    "f": "0.25 * a + 0.25 * b + 0.20 * c + 0.15 * d + 0.15 * e",
     "params": {
       "a": {
         "attribute_type": "FormulaMetric",
-        "ref": "account_engagement_momentum",
-        "description": "Engagement momentum (14d vs 30d activity ratio)"
+        "ref": "account_meeting_quality_ratio",
+        "description": "Meeting-to-total activity ratio — engagement DEPTH, not volume"
       },
       "b": {
         "attribute_type": "FormulaMetric",
-        "ref": "account_stakeholder_breadth",
-        "description": "Unique contacts per week (normalized)"
+        "ref": "account_committee_coverage_ratio",
+        "description": "Exec-to-total contact ratio — are decision-makers in the room?"
       },
       "c": {
         "attribute_type": "FormulaMetric",
-        "ref": "account_executive_coverage",
-        "description": "Executive activity as % of total"
+        "ref": "account_email_responsiveness",
+        "description": "Inbound-to-outbound email ratio — is the account engaging back?"
       },
       "d": {
         "attribute_type": "FormulaMetric",
-        "ref": "account_email_responsiveness",
-        "description": "Inbound-to-outbound email ratio"
+        "ref": "account_contact_velocity",
+        "description": "Rate of new stakeholder introduction — is the committee forming?"
+      },
+      "e": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_stakeholder_breadth",
+        "description": "Unique contacts per week — multi-threaded or single-threaded?"
       }
     }
   },
-  "display_name": "ICP Fit Score",
-  "description": "Composite score measuring how closely an account's behavioral engagement profile matches ideal customer patterns. Combines engagement momentum, stakeholder breadth, executive coverage, and email responsiveness into a weighted grade.",
-  "coaching_text": "Above 0.70 = Strong ICP behavioral match — prioritize for prospecting. 0.40-0.70 = Moderate fit — worth investigating. Below 0.40 = Weak behavioral match — deprioritize or reassess approach.",
+  "display_name": "ICP Fit Score (v2)",
+  "description": "Behavioral ICP scoring based on engagement QUALITY and PATTERN, not engagement volume. Measures five dimensions that distinguish real buying behavior from surface-level activity: (1) Are they taking meetings, not just emailing? (2) Are decision-makers involved? (3) Are they responsive? (4) Are new stakeholders entering the conversation? (5) How broad is the relationship? This is fundamentally different from engagement score — two accounts at engagement 70 can have wildly different ICP fit if one has deep multi-threaded exec engagement and the other has high-volume single-threaded email.",
+  "coaching_text": "Above 0.60 = Strong behavioral ICP match — engagement pattern resembles closed-won accounts. 0.35-0.60 = Moderate fit — some positive signals but missing depth in one or more dimensions. Below 0.35 = Weak fit — engagement may be high but lacks the quality patterns of successful deals.",
   "active": true,
   "show": true,
   "source": "people_ai",
   "_meta": {
     "category": "icp_fit_profiling",
     "tier": "composite",
+    "version": 2,
     "insight_types": ["icp_fit_profiling"],
     "component_metrics": [
-      "account_engagement_momentum",
-      "account_stakeholder_breadth",
-      "account_executive_coverage",
-      "account_email_responsiveness"
+      "account_meeting_quality_ratio",
+      "account_committee_coverage_ratio",
+      "account_email_responsiveness",
+      "account_contact_velocity",
+      "account_stakeholder_breadth"
     ],
     "weights": {
-      "engagement_momentum": 0.30,
-      "stakeholder_breadth": 0.25,
-      "executive_coverage": 0.25,
-      "email_responsiveness": 0.20
+      "meeting_quality_ratio": 0.25,
+      "committee_coverage_ratio": 0.25,
+      "email_responsiveness": 0.20,
+      "contact_velocity": 0.15,
+      "stakeholder_breadth": 0.15
     },
     "thresholds": {
-      "strong": 0.70,
-      "moderate": 0.40,
+      "strong": 0.60,
+      "moderate": 0.35,
       "weak": 0.00
-    }
+    },
+    "design_rationale": "V1 was essentially a repackaged engagement score — all inputs measured engagement quantity. V2 shifts to engagement QUALITY: meeting depth (not email volume), decision-maker access (not just contact count), responsiveness (not just activity), committee formation (not just current breadth). Two accounts with identical engagement scores will score very differently on ICP fit if one has deep exec-level meeting engagement and the other has high-volume single-threaded email."
   }
 }

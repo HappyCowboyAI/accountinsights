@@ -1,0 +1,60 @@
+{
+  "slug": "account_revenue_normalized_activity",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a + b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "meeting"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"activity_type": {"$eq": "email"}},
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Revenue-Normalized Activity",
+  "description": "Total activity count (meetings + emails, 30 days). Designed to be compared against annual_revenue in the EDB table or SalesAI signal to identify accounts that are over-engaging relative to their size. A $10M company with 25 activities is vastly more significant than a $500M company with 25 activities. FormulaMetric limitations prevent direct division by a CRM field, so the normalization happens at the signal/table layer where revenue is available for comparison.",
+  "coaching_text": "Compare against annual revenue in the table view. High activity + low revenue = over-indexing, strong ICP signal. High activity + high revenue = expected for large accounts. Low activity + high revenue = under-engaging, potential neglect.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "icp_fit_profiling",
+    "tier": 1,
+    "maps_to_insight": ["icp_fit_profiling", "whitespace_expansion"],
+    "best_fit_tables": ["Table 1: ICP Fit Profiling"],
+    "normalization_note": "FormulaMetric cannot reference CRM fields like annual_revenue directly. Revenue normalization is applied in the SalesAI signal layer where both metrics and CRM fields are available. In EDB tables, display this metric alongside annual_revenue for manual comparison."
+  }
+}
