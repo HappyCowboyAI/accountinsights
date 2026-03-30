@@ -1,0 +1,59 @@
+{
+  "slug": "account_insights_icp_fit_score",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "0.30 * a + 0.25 * b + 0.25 * c + 0.20 * d",
+    "params": {
+      "a": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_engagement_momentum",
+        "description": "Engagement momentum (14d vs 30d activity ratio)"
+      },
+      "b": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_stakeholder_breadth",
+        "description": "Unique contacts per week (normalized)"
+      },
+      "c": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_executive_coverage",
+        "description": "Executive activity as % of total"
+      },
+      "d": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_email_responsiveness",
+        "description": "Inbound-to-outbound email ratio"
+      }
+    }
+  },
+  "display_name": "ICP Fit Score",
+  "description": "Composite score measuring how closely an account's behavioral engagement profile matches ideal customer patterns. Combines engagement momentum, stakeholder breadth, executive coverage, and email responsiveness into a weighted grade.",
+  "coaching_text": "Above 0.70 = Strong ICP behavioral match — prioritize for prospecting. 0.40-0.70 = Moderate fit — worth investigating. Below 0.40 = Weak behavioral match — deprioritize or reassess approach.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "icp_fit_profiling",
+    "tier": "composite",
+    "insight_types": ["icp_fit_profiling"],
+    "component_metrics": [
+      "account_engagement_momentum",
+      "account_stakeholder_breadth",
+      "account_executive_coverage",
+      "account_email_responsiveness"
+    ],
+    "weights": {
+      "engagement_momentum": 0.30,
+      "stakeholder_breadth": 0.25,
+      "executive_coverage": 0.25,
+      "email_responsiveness": 0.20
+    },
+    "thresholds": {
+      "strong": 0.70,
+      "moderate": 0.40,
+      "weak": 0.00
+    }
+  }
+}

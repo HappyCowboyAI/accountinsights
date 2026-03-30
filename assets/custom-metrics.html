@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Metrics Reference — Account Insights</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Roboto:wght@300;400;500;700;900&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --surface2: #fafaf9;
+  --border: #e5e5e4;
+  --border2: #d1d0ce;
+  --black: #000000;
+  --graphite: #171721;
+  --surface-gray: #BBBCBC;
+  --horizon: #6296AD;
+  --white: #FFFFFF;
+  --plum: #B08FA2;
+  --mint: #8FCDA8;
+  --cinder: #C05527;
+  --indigo: #275198;
+  --cobalt: #21B5FF;
+  --accent: #6296AD;
+  --accent-dark: #4a7a8f;
+  --accent2: #275198;
+  --green: #8FCDA8;
+  --green-dark: #2d7a50;
+  --text: #171721;
+  --text-muted: #6b6b72;
+  --text-dim: #9b9b9e;
+  --mono: 'Chivo Mono', monospace;
+  --sans: 'Roboto', sans-serif;
+  --serif: 'Cardo', serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
+  text-decoration: none; margin-bottom: 32px; letter-spacing: 0.02em;
+}
+.back-link:hover { color: var(--accent-dark); }
+
+/* -- HERO -- */
+.hero {
+  background: var(--graphite);
+  padding: 44px 40px;
+  border-radius: 12px;
+  margin-bottom: 40px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--surface-gray), var(--plum), var(--horizon), #E8A090, var(--surface-gray));
+}
+.hero-tag {
+  font-family: var(--mono); color: var(--surface-gray);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: var(--serif); font-size: 36px; font-weight: 400;
+  color: var(--white); line-height: 1.15; margin-bottom: 12px;
+}
+.hero h1 span { color: var(--horizon); }
+.hero p {
+  font-size: 14px; color: var(--surface-gray); line-height: 1.65;
+  max-width: 600px; font-weight: 300;
+}
+.hero-stats {
+  display: flex; gap: 36px; margin-top: 24px;
+}
+.stat-num {
+  font-family: var(--mono); font-size: 24px; font-weight: 700;
+  color: var(--white); letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 10px; color: var(--surface-gray); margin-top: 2px;
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+/* -- SECTION -- */
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin: 40px 0 20px; padding-bottom: 12px;
+  border-bottom: 2px solid var(--graphite);
+}
+.section-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--white); background: var(--graphite);
+  padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.section-title { font-size: 20px; font-weight: 900; color: var(--graphite); }
+.section-count { font-size: 13px; color: var(--text-muted); margin-left: auto; }
+
+/* -- METRIC CARD -- */
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.metric-card:hover { border-color: var(--border2); }
+
+.metric-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.metric-name { font-size: 16px; font-weight: 700; color: var(--graphite); }
+.metric-slug {
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  background: rgba(98,150,173,0.1); padding: 2px 8px; border-radius: 3px;
+}
+.metric-type {
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+  background: var(--surface2); padding: 2px 8px; border-radius: 3px;
+  border: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.metric-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+
+.metric-field-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 4px;
+}
+.metric-field-value {
+  font-size: 13px; color: var(--text); line-height: 1.5;
+}
+.metric-field-value code {
+  font-family: var(--mono); font-size: 12px; color: var(--accent-dark);
+  background: var(--surface2); padding: 1px 5px; border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.metric-coaching {
+  grid-column: 1 / -1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.metric-coaching strong {
+  color: var(--graphite);
+  font-weight: 700;
+}
+
+.metric-tables {
+  grid-column: 1 / -1;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.table-tag {
+  font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 3px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a href="index.html" class="back-link">&larr; Back to Deployment Guide</a>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Reference &middot; Custom Metrics &middot; v1.0</div>
+    <h1>Account Insights<br><span>Custom Metrics Reference</span></h1>
+    <p>12 custom FormulaMetrics that power the Account Insights scoring layer. 7 base metrics compute ratios and rates from OOTB data. 5 composite scores combine multiple signals into per-category grades.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">7</div><div class="stat-label">Base Metrics</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">Composite Scores</div></div>
+      <div class="stat"><div class="stat-num">12</div><div class="stat-label">Total</div></div>
+    </div>
+  </div>
+
+  <!-- BASE METRICS -->
+  <div class="section-header">
+    <span class="section-badge">Group 1</span>
+    <span class="section-title">Base Metrics</span>
+    <span class="section-count">7 metrics</span>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Email Responsiveness</div>
+      <div class="metric-slug">account_email_responsiveness</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>a / b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">double</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Ratio of inbound to outbound emails at the account level. Parameter <code>a</code> = inbound emails (external, non-outbound). Parameter <code>b</code> = outbound emails (external, outbound).</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_7_days, last_14_days, last_30_days, this_quarter, any_time</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Above 0.5 = two-way conversation. Below 0.3 = one-way prospecting.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T1: ICP Fit</span>
+        <span class="table-tag">T2: Relationship Health</span>
+        <span class="table-tag">T5: Account Neglect</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Executive Coverage</div>
+      <div class="metric-slug">account_executive_coverage</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>100 * a / b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">percentage</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">% of external activities involving Director, VP, or Executive-level contacts. Parameter <code>a</code> = exec-level activities. Parameter <code>b</code> = all external activities.</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_14_days, last_30_days, this_quarter, any_time</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Above 30% with no open opp = strategic conversation needs a deal.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T1: ICP Fit</span>
+        <span class="table-tag">T2: Relationship Health</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Engagement Momentum</div>
+      <div class="metric-slug">account_engagement_momentum</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>100 * a / b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">percentage</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Rate of engagement acceleration. Parameter <code>a</code> = meetings + inbound emails (14d). Parameter <code>b</code> = meetings + inbound emails (30d). Compares recent vs trailing activity.</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_14_days (a) vs last_30_days (b)</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Above 100% = engagement accelerating. 50-100% = steady. Below 50% = engagement fading.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T3: Engagement Momentum</span>
+        <span class="table-tag">T4: Whitespace</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Stakeholder Breadth</div>
+      <div class="metric-slug">account_stakeholder_breadth</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>a / 4.3</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">double</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Unique external contacts engaged per week (30-day average). Parameter <code>a</code> = count_distinct of external participant emails over 30 days, divided by 4.3 weeks.</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_30_days</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Below 1.0/week = thin relationship. 1.0-3.0 = healthy. Above 3.0 = broad multi-threaded engagement.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T1: ICP Fit</span>
+        <span class="table-tag">T2: Relationship Health</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Meeting Acceleration</div>
+      <div class="metric-slug">account_meeting_acceleration</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>4.286 * a / b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">double</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Ratio of 7-day to 30-day meeting frequency, normalized (4.286 = 30/7). Above 1.0 = meetings accelerating. Parameter <code>a</code> = meetings (7d). Parameter <code>b</code> = meetings (30d).</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_7_days (a) vs last_30_days (b)</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Above 1.5 = surge. 0.8-1.2 = steady. Below 0.5 = meeting cadence declining.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T3: Engagement Momentum</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Email Acceleration</div>
+      <div class="metric-slug">account_email_acceleration</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>4.286 * a / b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">double</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Ratio of 7-day to 30-day inbound email frequency, normalized. Above 1.0 = inbound email accelerating. Parameter <code>a</code> = inbound emails (7d). Parameter <code>b</code> = inbound emails (30d).</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_7_days (a) vs last_30_days (b)</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Above 1.5 = surge in inbound interest. 0.8-1.2 = steady. Below 0.5 = going quiet.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T3: Engagement Momentum</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Activity Intensity</div>
+      <div class="metric-slug">account_activity_revenue_ratio</div>
+      <div class="metric-type">FormulaMetric</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Formula</div>
+        <div class="metric-field-value"><code>a + b</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Data Type</div>
+        <div class="metric-field-value">double</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Description</div>
+        <div class="metric-field-value">Total external meetings + emails in last 30 days. Used as a proxy for activity-to-revenue comparison. Revenue normalization done in the SalesAI signal layer.</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Time Ranges</div>
+        <div class="metric-field-value">last_30_days</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Compare against account revenue tier. High intensity on small accounts = expansion signal. Low intensity on large accounts = coverage gap.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T4: Whitespace</span>
+        <span class="table-tag">T5: Account Neglect</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPOSITE SCORES -->
+  <div class="section-header">
+    <span class="section-badge">Group 2</span>
+    <span class="section-title">Composite Scores</span>
+    <span class="section-count">5 scores</span>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">ICP Fit Score</div>
+      <div class="metric-slug">account_icp_fit_score</div>
+      <div class="metric-type">Composite</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Components</div>
+        <div class="metric-field-value"><code>engagement_level</code> + <code>executive_coverage</code> + <code>email_responsiveness</code> + <code>stakeholder_breadth</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Weighting</div>
+        <div class="metric-field-value">Engagement 30%, Exec Coverage 25%, Email Responsiveness 25%, Stakeholder Breadth 20%</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Weighted blend that identifies accounts behaving like your best customers. Score 0-100. Above 70 = strong ICP fit candidate.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T1: ICP Fit Profiling</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Relationship Health Score</div>
+      <div class="metric-slug">account_relationship_health_score</div>
+      <div class="metric-type">Composite</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Components</div>
+        <div class="metric-field-value"><code>stakeholder_breadth</code> + <code>executive_coverage</code> + <code>email_responsiveness</code> + <code>meeting_frequency</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Weighting</div>
+        <div class="metric-field-value">Stakeholder Breadth 30%, Exec Coverage 25%, Email Responsiveness 25%, Meeting Frequency 20%</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Multi-threading and depth assessment. Score 0-100. Below 30 = single-threaded risk. Below 20 = critical — one contact leaves and you lose the account.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T2: Relationship Health</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Momentum Score</div>
+      <div class="metric-slug">account_momentum_score</div>
+      <div class="metric-type">Composite</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Components</div>
+        <div class="metric-field-value"><code>engagement_momentum</code> + <code>meeting_acceleration</code> + <code>email_acceleration</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Weighting</div>
+        <div class="metric-field-value">Engagement Momentum 40%, Meeting Acceleration 35%, Email Acceleration 25%</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Trajectory indicator. Above 1.0 = account heating up. Below 0.5 = cooling down. 0.8-1.2 = steady state.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T3: Engagement Momentum</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Expansion Potential Score</div>
+      <div class="metric-slug">account_expansion_score</div>
+      <div class="metric-type">Composite</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Components</div>
+        <div class="metric-field-value"><code>engagement_level</code> + <code>activity_intensity</code> + <code>stakeholder_breadth</code> + <code>executive_coverage</code></div>
+      </div>
+      <div>
+        <div class="metric-field-label">Weighting</div>
+        <div class="metric-field-value">Engagement 25%, Activity Intensity 30%, Stakeholder Breadth 25%, Exec Coverage 20%</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Identifies accounts where engagement intensity exceeds current deal footprint. High score + Customer account type + few open opps = expansion opportunity.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T4: Whitespace &amp; Expansion</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <div class="metric-name">Neglect Risk Score</div>
+      <div class="metric-slug">account_neglect_risk_score</div>
+      <div class="metric-type">Composite</div>
+    </div>
+    <div class="metric-body">
+      <div>
+        <div class="metric-field-label">Components</div>
+        <div class="metric-field-value"><code>engagement_level</code> (inverted) + <code>activity_intensity</code> (inverted) + <code>meeting_acceleration</code> (inverted)</div>
+      </div>
+      <div>
+        <div class="metric-field-label">Weighting</div>
+        <div class="metric-field-value">Engagement (inv) 40%, Activity Intensity (inv) 35%, Meeting Acceleration (inv) 25%</div>
+      </div>
+      <div class="metric-coaching"><strong>Coaching:</strong> Higher score = more neglected. Inverted metrics mean low engagement drives high neglect risk. Prioritize accounts with high neglect score AND high annual revenue.</div>
+      <div class="metric-tables">
+        <span class="table-tag">T5: Account Neglect</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

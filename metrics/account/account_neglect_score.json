@@ -1,0 +1,53 @@
+{
+  "slug": "account_insights_account_neglect_score",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "0.40 * (1 / (a + 1)) + 0.30 * (1 / (b + 1)) + 0.30 * (1 / (c + 1))",
+    "params": {
+      "a": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_activity_revenue_ratio",
+        "description": "Activity intensity (meetings + emails 30d) — inverted so low activity = high neglect"
+      },
+      "b": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_meeting_acceleration",
+        "description": "Meeting acceleration (7d vs 30d) — inverted so declining meetings = high neglect"
+      },
+      "c": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_email_responsiveness",
+        "description": "Email responsiveness — inverted so one-way email = high neglect"
+      }
+    }
+  },
+  "display_name": "Account Neglect Score",
+  "description": "Composite score measuring how neglected an account is. INVERTED scale — higher scores indicate MORE neglect. Combines low activity intensity, declining meeting momentum, and poor email responsiveness. Designed to surface high-value accounts that are quietly going dark.",
+  "coaching_text": "Above 0.70 = Critical neglect — high-value account with near-zero engagement, immediate outreach required. 0.40-0.70 = Watch list — engagement declining, schedule proactive check-in. Below 0.40 = Covered — account has adequate recent activity.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "account_neglect",
+    "tier": "composite",
+    "insight_types": ["account_neglect"],
+    "component_metrics": [
+      "account_activity_revenue_ratio",
+      "account_meeting_acceleration",
+      "account_email_responsiveness"
+    ],
+    "weights": {
+      "activity_intensity_inverted": 0.40,
+      "meeting_acceleration_inverted": 0.30,
+      "email_responsiveness_inverted": 0.30
+    },
+    "thresholds": {
+      "critical": 0.70,
+      "watch": 0.40,
+      "covered": 0.00
+    },
+    "note": "This metric uses inverted scoring (1/(x+1)) so that LOW activity produces HIGH neglect scores. Sort descending to find most neglected accounts."
+  }
+}

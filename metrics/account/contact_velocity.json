@@ -1,0 +1,79 @@
+{
+  "slug": "account_contact_velocity",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "4.286 * a / b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count_distinct",
+        "count_distinct_field": "participants.email",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_7_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count_distinct",
+        "count_distinct_field": "participants.email",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Contact Velocity",
+  "description": "Rate at which new contacts are being engaged at the account. Compares 7-day unique contact count to 30-day unique contact count (annualized with 4.286x multiplier). Values above 1.0 indicate the committee is expanding — new people are entering the conversation.",
+  "coaching_text": "Above 1.2 = rapidly expanding contact base — new stakeholders entering, likely committee forming. 0.8-1.2 = stable contact engagement. Below 0.8 = stagnant — no new contacts being added, risk of relationship atrophy.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "buying_committee",
+    "tier": 2,
+    "maps_to_insight": ["buying_committee", "engagement_momentum"],
+    "best_fit_tables": ["Table 7: Buying Committee Coverage"],
+    "wave": 2,
+    "thresholds": {
+      "expanding": 1.2,
+      "stable": 0.8,
+      "stagnant": 0.0
+    }
+  }
+}

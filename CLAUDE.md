@@ -13,8 +13,8 @@ This is a People.ai AI Play launched as a 30-day sprint. It uses only People.ai 
 | Layer | Tool | Role |
 |-------|------|------|
 | Data | **People.ai Insights API** | CSV exports of OOTB metrics (engagement, activity, exec access, relationship data) |
-| Tables | **EDB (Explore Data Builder)** | 6 pre-filtered tables via Glass API bookmarklets (5 category + 1 summary) |
-| Metrics | **Custom FormulaMetrics** | 12 computed signals (9 new + 3 existing from Opportunity Insights) |
+| Tables | **EDB (Explore Data Builder)** | 7 pre-filtered tables via Glass API bookmarklets (5 category + 1 summary + 1 buying committee) |
+| Metrics | **Custom FormulaMetrics** | 14 computed signals (7 base + 5 composite scores + 2 buying committee) |
 | Intelligence | **SalesAI Signals** | LLM-powered analysis using Claude + OOTB metric context |
 | Dashboard | **EDB Board Creator** | 15-widget HTML bookmarklet dashboard |
 | Orchestration | **n8n** | Slack bot workflow (`/account-insights` slash command) |
@@ -37,27 +37,37 @@ There is no custom backend code. EDB tables/dashboards deploy via bookmarklets. 
 
 ## Repository Structure
 
-- `edb-tables/` — JavaScript bookmarklet scripts for the 6 EDB tables
+- `edb-tables/` — JavaScript bookmarklet scripts for 7 EDB tables
   - `icp_fit_profiling.js` — Table 1: ICP Fit Profiling (account)
   - `relationship_health.js` — Table 2: Relationship Health (account)
   - `engagement_momentum.js` — Table 3: Engagement Momentum (account)
   - `whitespace_expansion.js` — Table 4: Whitespace & Expansion (account)
   - `account_neglect.js` — Table 5: Account Neglect (account)
-  - `account_summary.js` — Table 6: Account Summary (composite view)
+  - `account_intelligence_summary.js` — Table 6: Account Intelligence Summary (composite view)
+  - `buying_committee_coverage.js` — Table 7: Buying Committee Coverage (Wave 2)
 - `metrics/` — Custom metric JSON definitions
-  - `account/` — FormulaMetrics (12 total: 9 new account-level + 3 existing from OI)
+  - `account/` — 14 FormulaMetrics total:
+    - 7 base metrics (email_responsiveness, executive_coverage, engagement_momentum, stakeholder_breadth, meeting_acceleration, email_acceleration, activity_revenue_ratio)
+    - 5 composite scores (icp_fit_score, relationship_health_score, engagement_momentum_score, whitespace_expansion_score, account_neglect_score)
+    - 2 buying committee metrics (committee_coverage_ratio, contact_velocity) — Wave 2
 - `signals/` — SalesAI Signal configurations
   - `unified/` — Single "Account Intelligence" signal (recommended)
-  - `individual/` — 5 separate signals (one per insight category)
+  - `individual/` — 6 signals (5 category + 1 buying committee)
+  - `compound/` — 4 cross-category compound signals (Wave 2)
 - `dashboards/` — EDB dashboard HTML board creator
-- `prompts/` — Claude prompt templates for AI analysis
-- `n8n/workflows/` — n8n workflow JSON files for the /account-insights Slack bot
+- `prompts/` — Claude prompt templates for AI analysis (neglected, surging, expansion)
+- `n8n/workflows/` — n8n workflow JSON for the /account-insights Slack bot
+  - `account_insights_v1.json` — 37-node workflow, 3 parallel branches
 - `docs/` — Setup guides, design specs, implementation plans
-  - `plans/` — Design doc and implementation plan
+  - `plans/` — Design doc, implementation plan, Wave 2 design
   - `sales-enablement/` — Sales-facing documentation
     - `sales-leader/` — Materials for sales leaders
     - `revops/` — Materials for RevOps teams
-- `assets/` — Screenshots, GIFs, demo materials
+- `assets/` — HTML deployment guide site
+  - `index.html` — CSM Deployment Guide (main page with bookmarklets + board generator)
+  - `preflight-checklist.html` — Interactive pre-flight checklist (4 phases)
+  - `custom-metrics.html` — Custom metrics reference (12 base + 5 composite)
+  - `signals-guide.html` — SalesAI signals deployment guide
 
 ## Key Design Decisions
 
@@ -86,7 +96,7 @@ JSON definitions in `metrics/` follow the People.ai metric schema:
 - **FormulaMetric**: Computes ratios/percentages from underlying TimeRangeMetrics
 - **TimeRangeMetric**: Counts/sums with time-windowed variations
 
-12 total metrics: 9 new account-level metrics + 3 existing metrics carried forward from Opportunity Insights. Deploy via the People.ai Admin API or manual import.
+14 total metrics: 7 base, 5 composite scores, 2 buying committee (Wave 2). Deploy via the People.ai Admin API or manual import.
 
 ## Working with SalesAI Signals
 
@@ -94,7 +104,7 @@ Signal configurations in `signals/` define the prompt, metrics context, and outp
 - **Unified (recommended)**: One signal per account, intelligent prioritization across all 5 categories
 - **Individual**: 5 separate signals (one per insight category), more flexibility but higher signal volume
 
-Note: Account Insights has 5 insight categories (not 4 like Opportunity Insights).
+Note: Account Insights has 5 insight categories (not 4 like Opportunity Insights), plus Wave 2 adds Buying Committee Coverage and 4 Cross-Category Compound Signals.
 
 ## Slack Bot (/account-insights)
 

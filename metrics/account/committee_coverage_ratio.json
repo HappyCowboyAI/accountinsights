@@ -1,0 +1,80 @@
+{
+  "slug": "account_committee_coverage_ratio",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "a / b",
+    "params": {
+      "a": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count_distinct",
+        "count_distinct_field": "participants.email",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}},
+                    {"participants.is_executive": {"$eq": true}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "b": {
+        "attribute_type": "TimeRangeMetric",
+        "data_type": "integer",
+        "entity": "activity",
+        "agg": "count_distinct",
+        "count_distinct_field": "participants.email",
+        "connection_field": "account_id",
+        "timestamp_field": "timestamp",
+        "time_ranges": ["last_30_days"],
+        "filters": {
+          "": {
+            "$and": [
+              {"external": {"$eq": true}},
+              {"is_deleted": {"$eq": false}},
+              {
+                "participants": {
+                  "$nested": [
+                    {"participants.external": {"$eq": true}}
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "display_name": "Committee Coverage Ratio",
+  "description": "Ratio of executive-level contacts to total external contacts engaged at the account. Proxies buying committee decision-maker coverage — higher ratios indicate better access to the people who approve deals.",
+  "coaching_text": "Above 0.30 = strong executive/decision-maker coverage. 0.15-0.30 = moderate — some exec access but may be missing key decision-makers. Below 0.15 = missing decision-makers — engagement is concentrated at mid/low levels.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "buying_committee",
+    "tier": 2,
+    "maps_to_insight": ["buying_committee", "relationship_health"],
+    "best_fit_tables": ["Table 7: Buying Committee Coverage", "Table 2: Relationship Health"],
+    "wave": 2,
+    "thresholds": {
+      "strong": 0.30,
+      "moderate": 0.15,
+      "weak": 0.00
+    }
+  }
+}

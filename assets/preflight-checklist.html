@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pre-Flight Checklist — Account Insights</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Roboto:wght@300;400;500;700;900&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --surface2: #fafaf9;
+  --border: #e5e5e4;
+  --border2: #d1d0ce;
+  --black: #000000;
+  --graphite: #171721;
+  --surface-gray: #BBBCBC;
+  --horizon: #6296AD;
+  --white: #FFFFFF;
+  --plum: #B08FA2;
+  --mint: #8FCDA8;
+  --cinder: #C05527;
+  --indigo: #275198;
+  --cobalt: #21B5FF;
+  --accent: #6296AD;
+  --accent-dark: #4a7a8f;
+  --accent2: #275198;
+  --green: #8FCDA8;
+  --green-dark: #2d7a50;
+  --text: #171721;
+  --text-muted: #6b6b72;
+  --text-dim: #9b9b9e;
+  --mono: 'Chivo Mono', monospace;
+  --sans: 'Roboto', sans-serif;
+  --serif: 'Cardo', serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
+  text-decoration: none; margin-bottom: 32px; letter-spacing: 0.02em;
+}
+.back-link:hover { color: var(--accent-dark); }
+
+/* -- HERO -- */
+.hero {
+  background: var(--graphite);
+  padding: 44px 40px;
+  border-radius: 12px;
+  margin-bottom: 40px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--surface-gray), var(--plum), var(--horizon), #E8A090, var(--surface-gray));
+}
+.hero-tag {
+  font-family: var(--mono); color: var(--surface-gray);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: var(--serif); font-size: 36px; font-weight: 400;
+  color: var(--white); line-height: 1.15; margin-bottom: 12px;
+}
+.hero h1 span { color: var(--horizon); }
+.hero p {
+  font-size: 14px; color: var(--surface-gray); line-height: 1.65;
+  max-width: 600px; font-weight: 300;
+}
+.hero-stats {
+  display: flex; gap: 36px; margin-top: 24px;
+}
+.stat-num {
+  font-family: var(--mono); font-size: 24px; font-weight: 700;
+  color: var(--white); letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 10px; color: var(--surface-gray); margin-top: 2px;
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+/* -- PHASE HEADER -- */
+.phase-header {
+  display: flex; align-items: center; gap: 12px;
+  margin: 40px 0 20px; padding-bottom: 12px;
+  border-bottom: 2px solid var(--graphite);
+}
+.phase-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--white); background: var(--graphite);
+  padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.phase-title { font-size: 20px; font-weight: 900; color: var(--graphite); }
+.phase-desc { font-size: 13px; color: var(--text-muted); margin-left: auto; }
+
+/* -- CHECKLIST -- */
+.checklist-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin-bottom: 20px;
+}
+
+.check-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.check-item:last-child { border-bottom: none; }
+
+.check-box {
+  width: 22px; height: 22px; border: 2px solid var(--border2);
+  border-radius: 4px; flex-shrink: 0; margin-top: 1px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; background: var(--white);
+}
+.check-box:hover { border-color: var(--accent); }
+.check-box.checked {
+  background: var(--accent); border-color: var(--accent);
+}
+.check-box.checked::after {
+  content: '';
+  width: 6px; height: 10px;
+  border: solid white; border-width: 0 2px 2px 0;
+  transform: rotate(45deg); margin-top: -2px;
+}
+
+.check-text {
+  font-size: 14px; color: var(--text); line-height: 1.5; flex: 1;
+}
+.check-text.done { color: var(--text-dim); text-decoration: line-through; }
+.check-note {
+  font-size: 12px; color: var(--text-muted); margin-top: 2px;
+}
+.check-input {
+  font-family: var(--mono); font-size: 12px;
+  border: 1px solid var(--border2); border-radius: 4px;
+  padding: 4px 8px; width: 160px; margin-left: 4px;
+  background: var(--surface2); color: var(--graphite);
+}
+
+/* -- CALLOUT -- */
+.callout {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+}
+.callout-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.callout-icon { font-size: 18px; flex-shrink: 0; }
+.callout-title { font-size: 14px; font-weight: 700; color: var(--graphite); }
+.callout-body {
+  font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  padding-left: 28px;
+}
+
+.callout.fix {
+  border-left: 3px solid var(--cinder);
+  background: #fef7ed;
+}
+.callout.fix .callout-title { color: #9a3412; }
+.callout.fix .callout-body { color: #9a3412; }
+
+/* -- PROGRESS BAR -- */
+.progress-bar {
+  background: var(--border); border-radius: 6px; height: 8px;
+  margin-bottom: 32px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent); border-radius: 6px;
+  width: 0%; transition: width 0.3s;
+}
+.progress-label {
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  text-align: right; margin-bottom: 6px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a href="index.html" class="back-link">&larr; Back to Deployment Guide</a>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Deployment &middot; Pre-Flight &middot; v1.0</div>
+    <h1>Account Insights<br><span>Pre-Flight Checklist</span></h1>
+    <p>A step-by-step checklist to run through before deploying Account Insights at a customer instance. Complete all 4 phases to ensure a smooth deployment.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">4</div><div class="stat-label">Phases</div></div>
+      <div class="stat"><div class="stat-num">~20</div><div class="stat-label">Minutes</div></div>
+      <div class="stat"><div class="stat-num">0</div><div class="stat-label">Admin Access</div></div>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-label"><span id="progress-count">0</span> / <span id="progress-total">0</span> complete</div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <!-- PHASE 1 -->
+  <div class="phase-header">
+    <span class="phase-badge">Phase 1</span>
+    <span class="phase-title">Environment Verification</span>
+    <span class="phase-desc">Confirm the instance is ready</span>
+  </div>
+
+  <div class="checklist-section">
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">People.ai instance is active and accessible at app.people.ai</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">User has People.ai login credentials (no admin access required)</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Google Chrome browser available (recommended for console scripts)</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">OOTB engagement scores are populating</div>
+        <div class="check-note">Check any account &rarr; engagement level should show a number, not blank</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Activity capture is running</div>
+        <div class="check-note">Verify recent meetings and emails appear in the activity timeline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase-header">
+    <span class="phase-badge">Phase 2</span>
+    <span class="phase-title">Table Deployment</span>
+    <span class="phase-desc">Deploy the 6 EDB tables</span>
+  </div>
+
+  <div class="checklist-section">
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Navigate to app.people.ai before running each script</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 1 (ICP Fit Profiling) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12345"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 2 (Relationship Health) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12346"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 3 (Engagement Momentum) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12347"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 4 (Whitespace &amp; Expansion) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12348"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 5 (Account Neglect) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12349"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Run Table 6 (Account Intelligence Summary) &rarr; Table ID: <input type="text" class="check-input" placeholder="e.g. 12350"></div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Verify each table shows rows (if zero rows, check Quick Fixes below)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase-header">
+    <span class="phase-badge">Phase 3</span>
+    <span class="phase-title">Board &amp; Dashboard</span>
+    <span class="phase-desc">Build the navigation board</span>
+  </div>
+
+  <div class="checklist-section">
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Enter all 6 Table IDs in the Board Generator on the deployment guide</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Generate and run the board script</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Verify board loads with navigation cards linking to each table</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Optional: Deploy enhanced tables with custom FormulaMetrics if available</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase-header">
+    <span class="phase-badge">Phase 4</span>
+    <span class="phase-title">Validation</span>
+    <span class="phase-desc">Confirm everything works</span>
+  </div>
+
+  <div class="checklist-section">
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Open ICP Fit table and verify engagement scores, industry, and revenue data populating</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Open Relationship Health table and verify accounts sorted ascending (worst relationships first)</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Open Engagement Momentum table and verify 7d vs 30d metrics are visible for trend comparison</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Open Account Neglect table and confirm it shows only low-engagement accounts</div>
+        <div class="check-note">Engagement &lt; 30 and meetings &le; 1 in last 30 days</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Verify all tables operate at the Account level (not Opportunity)</div>
+        <div class="check-note">All 6 Account Insights tables are account-scoped</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-box" onclick="toggleCheck(this)"></div>
+      <div>
+        <div class="check-text">Share table URLs with the customer stakeholder and record all IDs in deployment notes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK FIXES -->
+  <div class="phase-header">
+    <span class="phase-badge">Fixes</span>
+    <span class="phase-title">Quick Fixes</span>
+    <span class="phase-desc">Common issues and solutions</span>
+  </div>
+
+  <div class="callout fix">
+    <div class="callout-header">
+      <div class="callout-icon">&#x26A0;</div>
+      <div class="callout-title">Table shows 0 rows</div>
+    </div>
+    <div class="callout-body">Filters may be too restrictive for this customer's data. Most common: the <strong>engagement_level</strong> filter. Try removing the engagement filter first to see if data comes back, then add filters incrementally.</div>
+  </div>
+
+  <div class="callout fix">
+    <div class="callout-header">
+      <div class="callout-icon">&#x26A0;</div>
+      <div class="callout-title">Engagement scores are all blank</div>
+    </div>
+    <div class="callout-body">OOTB engagement scores may not be enabled for this customer. Check with People.ai support &mdash; engagement scoring requires activity capture to be running for at least 7 days.</div>
+  </div>
+
+  <div class="callout fix">
+    <div class="callout-header">
+      <div class="callout-icon">&#x26A0;</div>
+      <div class="callout-title">Bookmarklet doesn't work</div>
+    </div>
+    <div class="callout-body">URL too long for this browser. Use the console script instead (recommended for all tables). Open DevTools, paste the script, and press Enter.</div>
+  </div>
+
+  <div class="callout fix">
+    <div class="callout-header">
+      <div class="callout-icon">&#x26A0;</div>
+      <div class="callout-title">Error: Not logged in</div>
+    </div>
+    <div class="callout-body">You must be on <strong>app.people.ai</strong> and logged in before running the script. Navigate there first, verify you see the dashboard, then run the script.</div>
+  </div>
+
+</div>
+
+<script>
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+  var text = el.nextElementSibling.querySelector('.check-text');
+  if (text) text.classList.toggle('done');
+  updateProgress();
+}
+
+function updateProgress() {
+  var boxes = document.querySelectorAll('.check-box');
+  var checked = document.querySelectorAll('.check-box.checked');
+  var total = boxes.length;
+  var count = checked.length;
+  document.getElementById('progress-count').textContent = count;
+  document.getElementById('progress-total').textContent = total;
+  document.getElementById('progress-fill').style.width = (total ? Math.round(count / total * 100) : 0) + '%';
+}
+
+updateProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "slug": "account_insights_engagement_momentum_score",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "0.40 * a + 0.30 * b + 0.30 * c",
+    "params": {
+      "a": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_engagement_momentum",
+        "description": "Engagement momentum (14d vs 30d activity ratio)"
+      },
+      "b": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_meeting_acceleration",
+        "description": "Meeting acceleration (7d vs 30d meeting ratio)"
+      },
+      "c": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_email_acceleration",
+        "description": "Email acceleration (7d vs 30d inbound email ratio)"
+      }
+    }
+  },
+  "display_name": "Engagement Momentum Score",
+  "description": "Composite score measuring whether account engagement is accelerating, stable, or declining. Combines overall activity momentum with meeting-specific and email-specific acceleration signals to detect trajectory changes early.",
+  "coaching_text": "Above 1.20 = Surging — engagement is accelerating rapidly, potential buying signal. 0.80-1.20 = Stable — consistent engagement, monitor for shifts. Below 0.80 = Declining — engagement fading, investigate and re-engage.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "engagement_momentum",
+    "tier": "composite",
+    "insight_types": ["engagement_momentum"],
+    "component_metrics": [
+      "account_engagement_momentum",
+      "account_meeting_acceleration",
+      "account_email_acceleration"
+    ],
+    "weights": {
+      "engagement_momentum": 0.40,
+      "meeting_acceleration": 0.30,
+      "email_acceleration": 0.30
+    },
+    "thresholds": {
+      "surging": 1.20,
+      "stable": 0.80,
+      "declining": 0.00
+    }
+  }
+}

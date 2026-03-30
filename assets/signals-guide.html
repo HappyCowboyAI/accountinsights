@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalesAI Signals Guide — Account Insights</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Roboto:wght@300;400;500;700;900&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --surface2: #fafaf9;
+  --border: #e5e5e4;
+  --border2: #d1d0ce;
+  --black: #000000;
+  --graphite: #171721;
+  --surface-gray: #BBBCBC;
+  --horizon: #6296AD;
+  --white: #FFFFFF;
+  --plum: #B08FA2;
+  --mint: #8FCDA8;
+  --cinder: #C05527;
+  --indigo: #275198;
+  --cobalt: #21B5FF;
+  --accent: #6296AD;
+  --accent-dark: #4a7a8f;
+  --accent2: #275198;
+  --green: #8FCDA8;
+  --green-dark: #2d7a50;
+  --text: #171721;
+  --text-muted: #6b6b72;
+  --text-dim: #9b9b9e;
+  --mono: 'Chivo Mono', monospace;
+  --sans: 'Roboto', sans-serif;
+  --serif: 'Cardo', serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
+  text-decoration: none; margin-bottom: 32px; letter-spacing: 0.02em;
+}
+.back-link:hover { color: var(--accent-dark); }
+
+/* -- HERO -- */
+.hero {
+  background: var(--graphite);
+  padding: 44px 40px;
+  border-radius: 12px;
+  margin-bottom: 40px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--surface-gray), var(--plum), var(--horizon), #E8A090, var(--surface-gray));
+}
+.hero-tag {
+  font-family: var(--mono); color: var(--surface-gray);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.hero h1 {
+  font-family: var(--serif); font-size: 36px; font-weight: 400;
+  color: var(--white); line-height: 1.15; margin-bottom: 12px;
+}
+.hero h1 span { color: var(--horizon); }
+.hero p {
+  font-size: 14px; color: var(--surface-gray); line-height: 1.65;
+  max-width: 600px; font-weight: 300;
+}
+.hero-stats {
+  display: flex; gap: 36px; margin-top: 24px;
+}
+.stat-num {
+  font-family: var(--mono); font-size: 24px; font-weight: 700;
+  color: var(--white); letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 10px; color: var(--surface-gray); margin-top: 2px;
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+/* -- SECTION -- */
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin: 40px 0 20px; padding-bottom: 12px;
+  border-bottom: 2px solid var(--graphite);
+}
+.section-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--white); background: var(--graphite);
+  padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.section-title { font-size: 20px; font-weight: 900; color: var(--graphite); }
+.section-desc-text {
+  font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  margin-bottom: 20px; font-weight: 300;
+}
+
+/* -- DEPLOY OPTION CARDS -- */
+.deploy-options {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-bottom: 32px;
+}
+.deploy-option {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  transition: border-color 0.2s;
+}
+.deploy-option:hover { border-color: var(--border2); }
+.deploy-option.recommended { border-color: var(--horizon); border-width: 2px; }
+.option-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.option-badge.rec { color: var(--horizon); }
+.option-badge.alt { color: var(--text-muted); }
+.option-title { font-size: 18px; font-weight: 700; color: var(--graphite); margin-bottom: 8px; }
+.option-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
+.option-pros {
+  list-style: none; padding: 0;
+}
+.option-pros li {
+  font-size: 12px; color: var(--text-muted); line-height: 1.6;
+  padding-left: 18px; position: relative;
+}
+.option-pros li::before {
+  content: '+';
+  position: absolute; left: 0;
+  color: var(--green-dark); font-weight: 700;
+}
+.option-cons li::before { content: '-'; color: var(--cinder); }
+
+/* -- SIGNAL CARDS -- */
+.signal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--border);
+  transition: border-color 0.2s;
+}
+.signal-card:hover { border-color: var(--border2); }
+
+.signal-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.signal-icon { font-size: 24px; }
+.signal-name { font-size: 16px; font-weight: 700; color: var(--graphite); }
+.signal-priority {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-left: auto;
+}
+.priority-1 { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.priority-2 { background: #fef7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.priority-3 { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+.priority-4 { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.priority-5 { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.priority-6 { background: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+.priority-7 { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+.signal-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+
+.signal-field-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 4px;
+}
+.signal-field-value {
+  font-size: 13px; color: var(--text); line-height: 1.5;
+}
+.signal-field-value code {
+  font-family: var(--mono); font-size: 12px; color: var(--accent-dark);
+  background: var(--surface2); padding: 1px 5px; border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.signal-triggers {
+  grid-column: 1 / -1;
+}
+.trigger-list {
+  list-style: none; padding: 0;
+}
+.trigger-list li {
+  font-size: 12px; color: var(--text-muted); line-height: 1.8;
+  padding-left: 18px; position: relative;
+}
+.trigger-list li::before {
+  content: '\2022';
+  position: absolute; left: 4px;
+  color: var(--horizon); font-weight: 700;
+}
+
+.signal-action {
+  grid-column: 1 / -1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.signal-action strong { color: var(--graphite); }
+
+/* -- HIERARCHY TABLE -- */
+.hierarchy-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.hierarchy-table th {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); text-align: left;
+  padding: 12px 16px; border-bottom: 2px solid var(--border);
+  background: var(--surface2);
+}
+.hierarchy-table td {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  font-size: 13px; vertical-align: middle;
+}
+.hierarchy-table tr:last-child td { border-bottom: none; }
+.hierarchy-table .rank {
+  font-family: var(--mono); font-weight: 700; color: var(--graphite);
+  font-size: 14px; width: 40px; text-align: center;
+}
+.hierarchy-table .icon-cell { font-size: 18px; width: 40px; text-align: center; }
+.hierarchy-table .name-cell { font-weight: 700; color: var(--graphite); }
+.hierarchy-table .threshold-cell { font-family: var(--mono); font-size: 12px; color: var(--accent-dark); }
+.hierarchy-table .timeline-cell { font-size: 12px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a href="index.html" class="back-link">&larr; Back to Deployment Guide</a>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Reference &middot; SalesAI Signals &middot; v1.0</div>
+    <h1>Account Insights<br><span>SalesAI Signals Guide</span></h1>
+    <p>LLM-powered intelligence signals that analyze account metrics and surface the most critical insight. Two deployment options: a unified signal (recommended) or 5 individual signals.</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">2</div><div class="stat-label">Deploy Options</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">Signal Categories</div></div>
+      <div class="stat"><div class="stat-num">7</div><div class="stat-label">Priority Levels</div></div>
+    </div>
+  </div>
+
+  <!-- DEPLOYMENT OPTIONS -->
+  <div class="section-header">
+    <span class="section-badge">Options</span>
+    <span class="section-title">Deployment Approaches</span>
+  </div>
+
+  <p class="section-desc-text">Account Insights offers two ways to deploy SalesAI signals. The unified approach is recommended for most customers as it provides intelligent prioritization and lower signal volume.</p>
+
+  <div class="deploy-options">
+    <div class="deploy-option recommended">
+      <div class="option-badge rec">Recommended</div>
+      <div class="option-title">Unified Signal</div>
+      <div class="option-desc">One "Account Intelligence" signal per account. The LLM evaluates all 6 patterns (Neglect, Declining, Relationship, Whitespace, ICP Fit, Surging) and surfaces only the highest-priority insight.</div>
+      <ul class="option-pros">
+        <li>Lower signal volume — one insight per account</li>
+        <li>Intelligent prioritization across categories</li>
+        <li>Simpler deployment — one signal config</li>
+        <li>Updates 2-3 times weekly</li>
+      </ul>
+    </div>
+    <div class="deploy-option">
+      <div class="option-badge alt">Alternative</div>
+      <div class="option-title">Individual Signals</div>
+      <div class="option-desc">5 separate signals, one per insight category. Each fires independently when its threshold is met. More granular but higher total signal volume.</div>
+      <ul class="option-pros">
+        <li>Granular — multiple signals can fire per account</li>
+        <li>Category-specific thresholds and prompts</li>
+        <li>More flexibility for custom workflows</li>
+      </ul>
+      <ul class="option-pros option-cons" style="margin-top:6px;">
+        <li>Higher signal volume (up to 5x per account)</li>
+        <li>No cross-category prioritization</li>
+        <li>5 separate configs to manage</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- PRIORITY HIERARCHY -->
+  <div class="section-header">
+    <span class="section-badge">Hierarchy</span>
+    <span class="section-title">Priority Hierarchy</span>
+  </div>
+
+  <p class="section-desc-text">When the unified signal evaluates an account, it scores all patterns and displays only the highest-priority one that exceeds its threshold. This ensures the most urgent insight always surfaces first.</p>
+
+  <table class="hierarchy-table">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th></th>
+        <th>Signal</th>
+        <th>Threshold</th>
+        <th>Action Timeline</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rank">1</td>
+        <td class="icon-cell">&#128680;</td>
+        <td class="name-cell">Account Neglect</td>
+        <td class="threshold-cell">Score &gt; 0.70</td>
+        <td class="timeline-cell">Re-engage within 48 hours</td>
+      </tr>
+      <tr>
+        <td class="rank">2</td>
+        <td class="icon-cell">&#128201;</td>
+        <td class="name-cell">Engagement Declining</td>
+        <td class="threshold-cell">Score &gt; 0.60</td>
+        <td class="timeline-cell">Act within 1 week to reverse trend</td>
+      </tr>
+      <tr>
+        <td class="rank">3</td>
+        <td class="icon-cell">&#129309;</td>
+        <td class="name-cell">Relationship Health (Poor)</td>
+        <td class="threshold-cell">Score &lt; 0.40 (inverted)</td>
+        <td class="timeline-cell">Act within 1 week to broaden</td>
+      </tr>
+      <tr>
+        <td class="rank">4</td>
+        <td class="icon-cell">&#128142;</td>
+        <td class="name-cell">Whitespace &amp; Expansion</td>
+        <td class="threshold-cell">Score &gt; 0.65</td>
+        <td class="timeline-cell">Reposition within 2 weeks</td>
+      </tr>
+      <tr>
+        <td class="rank">5</td>
+        <td class="icon-cell">&#127919;</td>
+        <td class="name-cell">ICP Fit</td>
+        <td class="threshold-cell">Score &gt; 0.70 (prospects)</td>
+        <td class="timeline-cell">Prioritize outreach</td>
+      </tr>
+      <tr>
+        <td class="rank">6</td>
+        <td class="icon-cell">&#128200;</td>
+        <td class="name-cell">Engagement Surging</td>
+        <td class="threshold-cell">Score &gt; 0.70</td>
+        <td class="timeline-cell">Capitalize immediately</td>
+      </tr>
+      <tr>
+        <td class="rank">7</td>
+        <td class="icon-cell">&#9989;</td>
+        <td class="name-cell">Healthy</td>
+        <td class="threshold-cell">All normal</td>
+        <td class="timeline-cell">Continue as planned</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 5 SIGNAL CATEGORIES -->
+  <div class="section-header">
+    <span class="section-badge">Signals</span>
+    <span class="section-title">Signal Categories</span>
+  </div>
+
+  <p class="section-desc-text">Each category evaluates a specific dimension of account health. The unified signal scores all 6 patterns (the 5 categories below plus "Engagement Surging" as a positive momentum indicator) and presents the most critical one.</p>
+
+  <!-- SIGNAL 1: Account Neglect -->
+  <div class="signal-card" style="border-left-color: #C05527;">
+    <div class="signal-header">
+      <div class="signal-icon">&#128680;</div>
+      <div class="signal-name">Account Neglect</div>
+      <div class="signal-priority priority-1">Priority 1 — Most Urgent</div>
+    </div>
+    <div class="signal-body">
+      <div>
+        <div class="signal-field-label">What It Detects</div>
+        <div class="signal-field-value">High-value accounts being ignored — customers or accounts with pipeline that have gone dark.</div>
+      </div>
+      <div>
+        <div class="signal-field-label">Confidence Threshold</div>
+        <div class="signal-field-value"><code>Score &gt; 0.70</code></div>
+      </div>
+      <div class="signal-triggers">
+        <div class="signal-field-label">Trigger Conditions</div>
+        <ul class="trigger-list">
+          <li>Meetings (30d) = 0 or 1</li>
+          <li>Emails received (30d) = 0</li>
+          <li>Engagement level &lt; 20</li>
+          <li>Account type = Customer or has open pipeline</li>
+          <li>High annual revenue with near-zero activity</li>
+        </ul>
+      </div>
+      <div class="signal-action"><strong>Action:</strong> Re-engage within 48 hours. Any row in this category with Account Type = "Customer" is urgent. Open Opps &gt; 0 with zero activity = deal at risk from neglect.</div>
+    </div>
+  </div>
+
+  <!-- SIGNAL 2: Engagement Declining -->
+  <div class="signal-card" style="border-left-color: #f59e0b;">
+    <div class="signal-header">
+      <div class="signal-icon">&#128201;</div>
+      <div class="signal-name">Engagement Declining</div>
+      <div class="signal-priority priority-2">Priority 2</div>
+    </div>
+    <div class="signal-body">
+      <div>
+        <div class="signal-field-label">What It Detects</div>
+        <div class="signal-field-value">Accounts where activity is decelerating — cooling down before they go fully dark.</div>
+      </div>
+      <div>
+        <div class="signal-field-label">Confidence Threshold</div>
+        <div class="signal-field-value"><code>Score &gt; 0.60</code></div>
+      </div>
+      <div class="signal-triggers">
+        <div class="signal-field-label">Trigger Conditions</div>
+        <ul class="trigger-list">
+          <li>Meeting count 7d vs 30d ratio &lt; 0.5 (normalized to 4.3x)</li>
+          <li>Email received 7d vs 30d ratio &lt; 0.5</li>
+          <li>Engagement level below 40 and falling</li>
+          <li>People engaged dropping</li>
+          <li>Previously active account going quiet</li>
+        </ul>
+      </div>
+      <div class="signal-action"><strong>Action:</strong> Act within 1 week to reverse the trend. Schedule a meeting, send a personalized outreach, or escalate internally.</div>
+    </div>
+  </div>
+
+  <!-- SIGNAL 3: Relationship Health -->
+  <div class="signal-card" style="border-left-color: #B08FA2;">
+    <div class="signal-header">
+      <div class="signal-icon">&#129309;</div>
+      <div class="signal-name">Relationship Health (Poor)</div>
+      <div class="signal-priority priority-3">Priority 3</div>
+    </div>
+    <div class="signal-body">
+      <div>
+        <div class="signal-field-label">What It Detects</div>
+        <div class="signal-field-value">Under-invested relationships — single-threaded accounts, no exec access, one-way communication.</div>
+      </div>
+      <div>
+        <div class="signal-field-label">Confidence Threshold</div>
+        <div class="signal-field-value"><code>Score &lt; 0.40</code> (inverted — low score = poor health)</div>
+      </div>
+      <div class="signal-triggers">
+        <div class="signal-field-label">Trigger Conditions</div>
+        <ul class="trigger-list">
+          <li>People engaged &lt; 3 (single-threading risk)</li>
+          <li>Execs engaged = 0 (no executive access)</li>
+          <li>Email responsiveness &lt; 0.2 (one-way communication)</li>
+          <li>Emails sent &gt;&gt; emails received (chasing)</li>
+          <li>No meetings in last 7 days despite active pipeline</li>
+        </ul>
+      </div>
+      <div class="signal-action"><strong>Action:</strong> Broaden within 1 week. Map additional stakeholders, request exec introductions, and diversify communication channels.</div>
+    </div>
+  </div>
+
+  <!-- SIGNAL 4: Whitespace & Expansion -->
+  <div class="signal-card" style="border-left-color: #8FCDA8;">
+    <div class="signal-header">
+      <div class="signal-icon">&#128142;</div>
+      <div class="signal-name">Whitespace &amp; Expansion</div>
+      <div class="signal-priority priority-4">Priority 4</div>
+    </div>
+    <div class="signal-body">
+      <div>
+        <div class="signal-field-label">What It Detects</div>
+        <div class="signal-field-value">Untapped expansion potential in existing accounts — high engagement with small deal footprint.</div>
+      </div>
+      <div>
+        <div class="signal-field-label">Confidence Threshold</div>
+        <div class="signal-field-value"><code>Score &gt; 0.65</code></div>
+      </div>
+      <div class="signal-triggers">
+        <div class="signal-field-label">Trigger Conditions</div>
+        <ul class="trigger-list">
+          <li>Engagement level &gt; 60 on customer account</li>
+          <li>New people engaged appearing (expanding contacts)</li>
+          <li>Exec activities high relative to current deal footprint</li>
+          <li>Activity intensity high relative to annual revenue</li>
+          <li>Customer account with few/no open opportunities</li>
+        </ul>
+      </div>
+      <div class="signal-action"><strong>Action:</strong> Reposition within 2 weeks. Explore upsell/cross-sell, engage new stakeholders, and open expansion conversations.</div>
+    </div>
+  </div>
+
+  <!-- SIGNAL 5: ICP Fit -->
+  <div class="signal-card" style="border-left-color: #275198;">
+    <div class="signal-header">
+      <div class="signal-icon">&#127919;</div>
+      <div class="signal-name">ICP Fit</div>
+      <div class="signal-priority priority-5">Priority 5</div>
+    </div>
+    <div class="signal-body">
+      <div>
+        <div class="signal-field-label">What It Detects</div>
+        <div class="signal-field-value">Accounts whose behavioral engagement pattern matches your best customers — strong fit for prioritized outreach.</div>
+      </div>
+      <div>
+        <div class="signal-field-label">Confidence Threshold</div>
+        <div class="signal-field-value"><code>Score &gt; 0.70</code> (prospect accounts)</div>
+      </div>
+      <div class="signal-triggers">
+        <div class="signal-field-label">Trigger Conditions</div>
+        <ul class="trigger-list">
+          <li>Engagement level &gt; 60</li>
+          <li>Exec coverage &gt; 25% of activities with Dir/VP/Exec</li>
+          <li>Email responsiveness &gt; 0.4 (two-way conversation)</li>
+          <li>People engaged &gt; 5 per month (stakeholder breadth)</li>
+          <li>Meeting frequency &gt; 4/month</li>
+          <li>Pattern matches closed-won account behavioral profile</li>
+        </ul>
+      </div>
+      <div class="signal-action"><strong>Action:</strong> Prioritize outreach. This account is behaving like your best customers — move it up the priority queue.</div>
+    </div>
+  </div>
+
+  <!-- OOTB METRICS REFERENCE -->
+  <div class="section-header">
+    <span class="section-badge">Reference</span>
+    <span class="section-title">OOTB Metrics Used by Signals</span>
+  </div>
+
+  <p class="section-desc-text">All signals analyze these People.ai out-of-the-box account metrics. No custom fields or org-specific data required. All slugs prefixed with <code style="font-family:var(--mono);font-size:12px;color:var(--accent-dark);background:var(--surface2);padding:1px 5px;border-radius:3px;border:1px solid var(--border);">ootb_account_</code>.</p>
+
+  <table class="hierarchy-table">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Variations</th>
+        <th>Used By</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="name-cell">engagement_level</td>
+        <td class="threshold-cell">_0</td>
+        <td class="timeline-cell">All 5 categories</td>
+      </tr>
+      <tr>
+        <td class="name-cell">count_of_meetings_standard</td>
+        <td class="threshold-cell">_last_7_days, _last_30_days</td>
+        <td class="timeline-cell">Neglect, Declining, Momentum, Relationship</td>
+      </tr>
+      <tr>
+        <td class="name-cell">count_of_emails_sent</td>
+        <td class="threshold-cell">_last_30_days</td>
+        <td class="timeline-cell">Relationship, ICP Fit</td>
+      </tr>
+      <tr>
+        <td class="name-cell">count_of_emails_received</td>
+        <td class="threshold-cell">_last_7_days, _last_30_days</td>
+        <td class="timeline-cell">Declining, ICP Fit, Relationship</td>
+      </tr>
+      <tr>
+        <td class="name-cell">people_engaged</td>
+        <td class="threshold-cell">_last_30_days</td>
+        <td class="timeline-cell">Relationship, ICP Fit, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">executive_engaged</td>
+        <td class="threshold-cell">_last_30_days</td>
+        <td class="timeline-cell">ICP Fit, Relationship, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">executive_activities</td>
+        <td class="threshold-cell">_last_30_days</td>
+        <td class="timeline-cell">ICP Fit, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">open_opportunities</td>
+        <td class="threshold-cell">_any_time</td>
+        <td class="timeline-cell">Neglect, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">closed_won_opportunities</td>
+        <td class="threshold-cell">_last_fyear</td>
+        <td class="timeline-cell">ICP Fit, Neglect</td>
+      </tr>
+      <tr>
+        <td class="name-cell">annual_revenue</td>
+        <td class="threshold-cell">(none)</td>
+        <td class="timeline-cell">Neglect, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">account_type</td>
+        <td class="threshold-cell">_0</td>
+        <td class="timeline-cell">Neglect, Whitespace</td>
+      </tr>
+      <tr>
+        <td class="name-cell">industry</td>
+        <td class="threshold-cell">(none)</td>
+        <td class="timeline-cell">ICP Fit</td>
+      </tr>
+      <tr>
+        <td class="name-cell">original_owner</td>
+        <td class="threshold-cell">(none)</td>
+        <td class="timeline-cell">All categories (grouping)</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+</body>
+</html>

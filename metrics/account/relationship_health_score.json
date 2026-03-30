@@ -1,0 +1,52 @@
+{
+  "slug": "account_insights_relationship_health_score",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "0.30 * a + 0.30 * b + 0.40 * c",
+    "params": {
+      "a": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_stakeholder_breadth",
+        "description": "Unique contacts per week (normalized)"
+      },
+      "b": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_executive_coverage",
+        "description": "Executive activity as % of total"
+      },
+      "c": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_email_responsiveness",
+        "description": "Inbound-to-outbound email ratio"
+      }
+    }
+  },
+  "display_name": "Relationship Health Score",
+  "description": "Composite score measuring the depth and breadth of the relationship across an account. Weights email responsiveness highest (40%) because bi-directional communication is the strongest signal of a healthy relationship.",
+  "coaching_text": "Above 0.60 = Healthy multi-threaded relationship. 0.30-0.60 = At risk — check for single-threading or exec disengagement. Below 0.30 = Critical — likely single-threaded, urgent multi-threading needed.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "relationship_health",
+    "tier": "composite",
+    "insight_types": ["relationship_health"],
+    "component_metrics": [
+      "account_stakeholder_breadth",
+      "account_executive_coverage",
+      "account_email_responsiveness"
+    ],
+    "weights": {
+      "stakeholder_breadth": 0.30,
+      "executive_coverage": 0.30,
+      "email_responsiveness": 0.40
+    },
+    "thresholds": {
+      "healthy": 0.60,
+      "at_risk": 0.30,
+      "critical": 0.00
+    }
+  }
+}

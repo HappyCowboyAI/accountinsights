@@ -1,0 +1,59 @@
+{
+  "slug": "account_insights_whitespace_expansion_score",
+  "object": "account",
+  "definition": {
+    "attribute_type": "FormulaMetric",
+    "data_type": "double",
+    "f": "0.35 * a + 0.25 * b + 0.25 * c + 0.15 * d",
+    "params": {
+      "a": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_activity_revenue_ratio",
+        "description": "Activity intensity (meetings + emails 30d)"
+      },
+      "b": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_stakeholder_breadth",
+        "description": "Unique contacts per week (normalized)"
+      },
+      "c": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_engagement_momentum",
+        "description": "Engagement momentum (14d vs 30d activity ratio)"
+      },
+      "d": {
+        "attribute_type": "FormulaMetric",
+        "ref": "account_executive_coverage",
+        "description": "Executive activity as % of total"
+      }
+    }
+  },
+  "display_name": "Whitespace & Expansion Score",
+  "description": "Composite score identifying customer accounts with disproportionate engagement relative to current footprint. High activity intensity combined with broad stakeholder engagement and growing momentum signals untapped expansion potential.",
+  "coaching_text": "Above 0.65 = Strong expansion signal — this account's engagement exceeds its current footprint, explore upsell/cross-sell. 0.40-0.65 = Moderate — worth monitoring for expansion triggers. Below 0.40 = Low expansion signal — engagement matches or trails current spend.",
+  "active": true,
+  "show": true,
+  "source": "people_ai",
+  "_meta": {
+    "category": "whitespace_expansion",
+    "tier": "composite",
+    "insight_types": ["whitespace_expansion"],
+    "component_metrics": [
+      "account_activity_revenue_ratio",
+      "account_stakeholder_breadth",
+      "account_engagement_momentum",
+      "account_executive_coverage"
+    ],
+    "weights": {
+      "activity_revenue_ratio": 0.35,
+      "stakeholder_breadth": 0.25,
+      "engagement_momentum": 0.25,
+      "executive_coverage": 0.15
+    },
+    "thresholds": {
+      "strong": 0.65,
+      "moderate": 0.40,
+      "low": 0.00
+    }
+  }
+}

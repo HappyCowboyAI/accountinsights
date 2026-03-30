@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account Insights — CSM Deployment Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Roboto:wght@300;400;500;700;900&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Backstory Brand — v2.1 */
+  --bg: #f5f5f4;
+  --surface: #ffffff;
+  --surface2: #fafaf9;
+  --border: #e5e5e4;
+  --border2: #d1d0ce;
+
+  /* Neutrals (dominant) */
+  --black: #000000;
+  --graphite: #171721;
+  --surface-gray: #BBBCBC;
+  --horizon: #6296AD;
+  --white: #FFFFFF;
+
+  /* Secondary (accent only) */
+  --plum: #B08FA2;
+  --mint: #8FCDA8;
+  --cinder: #C05527;
+  --indigo: #275198;
+  --cobalt: #21B5FF;
+
+  /* Semantic aliases */
+  --accent: #6296AD;
+  --accent-dark: #4a7a8f;
+  --accent2: #275198;
+  --green: #8FCDA8;
+  --green-dark: #2d7a50;
+  --text: #171721;
+  --text-muted: #6b6b72;
+  --text-dim: #9b9b9e;
+
+  --mono: 'Chivo Mono', monospace;
+  --sans: 'Roboto', sans-serif;
+  --serif: 'Cardo', serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+/* -- LAYOUT -- */
+.layout { display: flex; min-height: 100vh; }
+
+/* -- SIDEBAR -- */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--graphite);
+  border-right: 1px solid #2a2a35;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid #2a2a35;
+}
+.sidebar-logo .wordmark {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+.sidebar-logo .page-title {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--surface-gray);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.sidebar-section {
+  padding: 14px 16px 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--surface-gray);
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px; cursor: pointer;
+  font-size: 12px; color: #9b9b9e;
+  transition: all 0.15s; border-left: 2px solid transparent;
+  text-decoration: none; font-family: var(--sans);
+}
+.nav-item:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+.nav-item.active { color: var(--white); border-left-color: var(--horizon); background: rgba(98,150,173,0.1); }
+.nav-item.done .nav-check { background: var(--mint); border-color: var(--mint); color: var(--graphite); }
+
+.nav-check {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid #3a3a45;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; flex-shrink: 0;
+  color: var(--graphite);
+  transition: all 0.2s;
+}
+.nav-emoji { font-size: 13px; flex-shrink: 0; }
+.nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sidebar-progress {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid #2a2a35;
+}
+.progress-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--surface-gray);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.progress-bar { height: 3px; background: #2a2a35; border-radius: 2px; overflow: hidden; }
+.progress-fill {
+  height: 100%;
+  background: var(--horizon);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* -- MAIN CONTENT -- */
+.main { flex: 1; overflow-y: auto; }
+
+/* -- HERO -- */
+.hero {
+  background: var(--graphite);
+  padding: 52px 52px 44px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #2a2a35;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--surface-gray), var(--plum), var(--horizon), #E8A090, var(--surface-gray));
+}
+.hero-inner { position: relative; z-index: 1; }
+.hero-text { max-width: 680px; }
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  color: var(--surface-gray); font-size: 10px; font-weight: 500;
+  margin-bottom: 18px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.hero h1 {
+  font-family: var(--serif);
+  font-size: 42px; font-weight: 400; line-height: 1.1;
+  color: var(--white);
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+}
+.hero h1 span { color: var(--horizon); }
+.hero-sub { font-size: 14px; color: var(--surface-gray); line-height: 1.65; max-width: 520px; margin-bottom: 32px; font-weight: 300; }
+.hero-stats { display: flex; gap: 40px; }
+.stat-num {
+  font-family: var(--mono);
+  font-size: 26px; font-weight: 700; color: var(--white);
+  letter-spacing: -0.02em;
+}
+.stat-label { font-size: 11px; color: var(--surface-gray); margin-top: 2px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* -- SECTION HEADERS -- */
+.content-section { padding: 40px 52px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.content-section:last-child { border-bottom: none; }
+.content-section:nth-child(even) { background: var(--surface2); }
+
+.section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.section-num {
+  width: 32px; height: 32px; border-radius: 4px;
+  background: var(--graphite);
+  color: white; font-family: var(--mono); font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.section-title { font-family: var(--serif); font-size: 22px; font-weight: 400; letter-spacing: -0.01em; }
+.section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; margin-left: 46px; line-height: 1.6; font-weight: 300; }
+
+/* -- HOW TO USE -- */
+.how-to { display: flex; gap: 0; margin-bottom: 0; }
+.how-step {
+  flex: 1; padding: 20px 22px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-right: none; position: relative;
+}
+.how-step:first-child { border-radius: 4px 0 0 4px; }
+.how-step:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid var(--border); }
+.how-step-num { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--horizon); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.how-step-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.how-step-desc { font-size: 12px; color: var(--text-muted); line-height: 1.55; font-weight: 300; }
+
+/* -- DEPLOYMENT CARDS -- */
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+.deploy-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.deploy-card.deployed {
+  border-color: var(--horizon);
+  box-shadow: 0 0 0 1px rgba(98,150,173,0.15);
+}
+.deploy-card:hover { border-color: var(--border2); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+.card-top { padding: 16px 18px 14px; border-bottom: 1px solid var(--border); }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.card-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.deployed-badge {
+  display: none; align-items: center; gap: 4px;
+  background: rgba(98,150,173,0.1); border: 1px solid rgba(98,150,173,0.3);
+  color: var(--accent-dark); font-size: 10px; font-weight: 500;
+  padding: 2px 8px; border-radius: 2px;
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em;
+}
+.deploy-card.deployed .deployed-badge { display: flex; }
+.card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; font-weight: 300; }
+.card-filter { font-size: 10.5px; font-family: var(--mono); color: var(--horizon); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.card-bottom { padding: 14px 18px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+
+/* BOOKMARKLET BUTTON */
+.bm-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 3px;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+  color: white; text-decoration: none; cursor: grab;
+  border: none; user-select: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.bm-btn:hover { opacity: 0.9; transform: scale(1.01); }
+.bm-btn:active { cursor: grabbing; }
+
+/* ID CAPTURE */
+.id-row { display: flex; align-items: center; gap: 8px; }
+.id-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; font-family: var(--mono); }
+.id-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 6px 10px; border-radius: 3px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.id-input:focus { border-color: var(--horizon); }
+.id-input.has-value { border-color: var(--horizon); color: var(--accent-dark); }
+.id-confirm {
+  background: var(--bg); border: 1px solid var(--border2); color: var(--text-muted);
+  font-size: 11px; font-weight: 500; padding: 6px 12px; border-radius: 3px;
+  cursor: pointer; font-family: var(--sans); transition: all 0.15s; white-space: nowrap;
+}
+.id-confirm:hover { background: var(--horizon); color: white; border-color: var(--horizon); }
+
+/* CONSOLE TOGGLE */
+.console-toggle {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 11px; font-family: var(--sans); cursor: pointer;
+  display: flex; align-items: center; gap: 5px; padding: 0;
+  transition: color 0.15s;
+}
+.console-toggle:hover { color: var(--horizon); }
+.console-block {
+  display: none; background: var(--graphite); border: 1px solid #2a2a35;
+  border-radius: 3px; padding: 12px; position: relative; margin-top: 4px;
+}
+.console-block.open { display: block; }
+.console-pre {
+  font-family: var(--mono); font-size: 10px; line-height: 1.6;
+  color: #a8c4cf; white-space: pre-wrap; word-break: break-all;
+  max-height: 140px; overflow-y: auto; margin: 0;
+}
+.console-copy {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(98,150,173,0.15); border: 1px solid rgba(98,150,173,0.3);
+  color: var(--horizon); font-size: 10px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px; cursor: pointer; font-family: var(--sans);
+  transition: all 0.15s;
+}
+.console-copy:hover { background: var(--horizon); color: white; border-color: var(--horizon); }
+
+/* -- BOARD GENERATOR -- */
+.board-gen {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.board-gen-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2);
+}
+.board-gen-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.board-status-pill {
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 3px;
+  background: rgba(100,116,139,0.2); color: var(--text-muted); border: 1px solid var(--border2);
+  transition: all 0.3s;
+}
+.board-status-pill.ready { background: rgba(98,150,173,0.15); color: var(--horizon); border-color: rgba(98,150,173,0.3); }
+
+.board-gen-body { padding: 22px; }
+.id-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+.id-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.id-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; vertical-align: middle; }
+.id-table tr:last-child td { border-bottom: none; }
+.id-cell { font-family: var(--mono); font-size: 12px; }
+.id-cell.filled { color: var(--accent-dark); }
+.id-cell.empty { color: var(--text-muted); font-style: italic; }
+.id-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); display: inline-block; transition: background 0.2s; }
+.id-dot.filled { background: var(--horizon); }
+
+.board-actions { display: flex; gap: 10px; align-items: center; }
+.gen-btn {
+  padding: 11px 20px; border-radius: 3px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 7px;
+}
+.gen-btn.primary {
+  background: var(--graphite);
+  color: white; opacity: 0.4; pointer-events: none;
+}
+.gen-btn.primary.active { opacity: 1; pointer-events: all; }
+.gen-btn.secondary {
+  background: var(--bg); border: 1px solid var(--border2);
+  color: var(--text-muted);
+}
+.gen-btn.secondary:hover { border-color: var(--horizon); color: var(--text); }
+
+.board-script-output {
+  display: none; margin-top: 16px;
+  background: #1e293b; border: 1px solid rgba(98,150,173,0.3);
+  border-radius: 4px; padding: 16px; position: relative;
+}
+.board-script-output.visible { display: block; }
+.board-script-pre {
+  font-family: var(--mono); font-size: 10px; line-height: 1.6;
+  color: #a8c4cf; white-space: pre-wrap; word-break: break-all;
+  max-height: 300px; overflow-y: auto;
+}
+.board-script-copy {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(98,150,173,0.2); border: 1px solid rgba(98,150,173,0.4);
+  color: var(--horizon); font-size: 10.5px; font-weight: 700;
+  padding: 4px 10px; border-radius: 5px; cursor: pointer; font-family: var(--sans);
+}
+.board-script-copy:hover { background: var(--horizon); color: white; }
+
+/* -- FOOTER -- */
+.footer {
+  padding: 32px 52px;
+  background: var(--graphite);
+  border-top: 1px solid #2a2a35;
+}
+.footer-links {
+  display: flex; gap: 24px; flex-wrap: wrap;
+}
+.footer-links a {
+  font-family: var(--mono); font-size: 11px; color: var(--surface-gray);
+  text-decoration: none; letter-spacing: 0.02em;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: var(--white); }
+.footer-note {
+  font-size: 11px; color: #555; margin-top: 16px; font-family: var(--mono);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Fade-in */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.deploy-card { animation: fadeUp 0.3s ease both; }
+.deploy-card:nth-child(1) { animation-delay: 0.05s; }
+.deploy-card:nth-child(2) { animation-delay: 0.10s; }
+.deploy-card:nth-child(3) { animation-delay: 0.15s; }
+.deploy-card:nth-child(4) { animation-delay: 0.20s; }
+.deploy-card:nth-child(5) { animation-delay: 0.25s; }
+.deploy-card:nth-child(6) { animation-delay: 0.30s; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">people.ai</div>
+      <div class="page-title">AI Deployment Guide</div>
+    </div>
+
+    <div class="sidebar-section">Getting Started</div>
+    <a class="nav-item active" href="#overview">
+      <span class="nav-check">&#128214;</span>
+      <span class="nav-label">Overview</span>
+    </a>
+    <a class="nav-item" href="#how-to">
+      <span class="nav-check">&#9881;&#65039;</span>
+      <span class="nav-label">How to Use</span>
+    </a>
+
+    <div class="sidebar-section">Step 1 — EDB Tables</div>
+    <a class="nav-item" href="#t1" id="nav-t1">
+      <div class="nav-check" id="check-t1"></div>
+      <span class="nav-emoji">&#127919;</span>
+      <span class="nav-label">ICP Fit Profiling</span>
+    </a>
+    <a class="nav-item" href="#t2" id="nav-t2">
+      <div class="nav-check" id="check-t2"></div>
+      <span class="nav-emoji">&#129309;</span>
+      <span class="nav-label">Relationship Health</span>
+    </a>
+    <a class="nav-item" href="#t3" id="nav-t3">
+      <div class="nav-check" id="check-t3"></div>
+      <span class="nav-emoji">&#128200;</span>
+      <span class="nav-label">Engagement Momentum</span>
+    </a>
+    <a class="nav-item" href="#t4" id="nav-t4">
+      <div class="nav-check" id="check-t4"></div>
+      <span class="nav-emoji">&#128142;</span>
+      <span class="nav-label">Whitespace &amp; Expansion</span>
+    </a>
+    <a class="nav-item" href="#t5" id="nav-t5">
+      <div class="nav-check" id="check-t5"></div>
+      <span class="nav-emoji">&#128680;</span>
+      <span class="nav-label">Account Neglect</span>
+    </a>
+    <a class="nav-item" href="#t6" id="nav-t6">
+      <div class="nav-check" id="check-t6"></div>
+      <span class="nav-emoji">&#129504;</span>
+      <span class="nav-label">Intelligence Summary</span>
+    </a>
+
+    <div class="sidebar-section">Step 2 — Dashboard</div>
+    <a class="nav-item" href="#board" id="nav-board">
+      <div class="nav-check" id="check-board"></div>
+      <span class="nav-emoji">&#128203;</span>
+      <span class="nav-label">Generate Board</span>
+    </a>
+
+    <div class="sidebar-section">Resources</div>
+    <a class="nav-item" href="custom-metrics.html">
+      <span class="nav-emoji">&#128208;</span>
+      <span class="nav-label">Custom Metrics Guide</span>
+    </a>
+    <a class="nav-item" href="signals-guide.html">
+      <span class="nav-emoji">&#129504;</span>
+      <span class="nav-label">SalesAI Signals Guide</span>
+    </a>
+    <a class="nav-item" href="preflight-checklist.html">
+      <span class="nav-emoji">&#9989;</span>
+      <span class="nav-label">Pre-Flight Checklist</span>
+    </a>
+
+    <div class="sidebar-progress">
+      <div class="progress-label">
+        <span>Deployment Progress</span>
+        <span id="progressText">0 / 7</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero" id="overview">
+      <div class="hero-inner">
+        <div class="hero-text">
+          <div class="hero-tag">AI Play &middot; Account Intelligence &middot; v1.0</div>
+          <h1>Account Insights<br><span>Deploy Account Intelligence</span></h1>
+          <p class="hero-sub">Deploy all 6 EDB tables and a dashboard board to any People.ai customer instance in minutes. Run each script from the browser console on app.people.ai — no API keys, no backend access required.</p>
+          <div class="hero-stats">
+            <div class="stat"><div class="stat-num">6</div><div class="stat-label">Tables</div></div>
+            <div class="stat"><div class="stat-num">12</div><div class="stat-label">Metrics</div></div>
+            <div class="stat"><div class="stat-num">5</div><div class="stat-label">Insight Types</div></div>
+            <div class="stat"><div class="stat-num">~20<span style="font-size:14px;font-weight:400">min</span></div><div class="stat-label">Total Deploy</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW TO USE -->
+    <div class="content-section" id="how-to">
+      <div class="section-header">
+        <div class="section-num">?</div>
+        <div class="section-title">How to Use This Guide</div>
+      </div>
+      <p class="section-desc">Three options per artifact — pick whichever works best for you.</p>
+      <div class="how-to">
+        <div class="how-step">
+          <div class="how-step-num">Option A — Bookmarklet</div>
+          <div class="how-step-title">Drag &amp; Click</div>
+          <div class="how-step-desc">Drag the colored button to your bookmarks bar. Navigate to app.people.ai, click the bookmark. Table creates and opens automatically.</div>
+        </div>
+        <div class="how-step">
+          <div class="how-step-num">Option B — Console Script</div>
+          <div class="how-step-title">Copy &amp; Paste</div>
+          <div class="how-step-desc">Expand the console script, copy it, open DevTools on app.people.ai (Cmd+Option+J / Ctrl+Shift+J), paste into the Console tab and press Enter.</div>
+        </div>
+        <div class="how-step">
+          <div class="how-step-num">After Each Deploy</div>
+          <div class="how-step-title">Record the ID</div>
+          <div class="how-step-desc">Each script logs the created table ID. Paste it into the ID field below the card — this feeds the board generator in Step 2.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: EDB TABLES -->
+    <div class="content-section" id="edb-section">
+      <div class="section-header">
+        <div class="section-num">1</div>
+        <div class="section-title">EDB Tables</div>
+      </div>
+      <p class="section-desc">6 account-level tables using OOTB metrics only — safe to deploy at any customer regardless of SalesAI enablement or custom configuration.</p>
+      <div class="cards-grid" id="edb-grid"></div>
+    </div>
+
+    <!-- STEP 2: BOARD GENERATOR -->
+    <div class="content-section" id="board">
+      <div class="section-header">
+        <div class="section-num">2</div>
+        <div class="section-title">Board Generator</div>
+      </div>
+      <p class="section-desc">Enter the table IDs from Step 1 to generate the dashboard board script. The board creates a 15-widget analytics dashboard across 6 sections.</p>
+
+      <div class="board-gen">
+        <div class="board-gen-header">
+          <div class="board-gen-title">&#128203; Board Script Generator</div>
+          <div class="board-status-pill" id="boardStatusPill">Waiting for table IDs</div>
+        </div>
+        <div class="board-gen-body">
+          <table class="id-table">
+            <thead>
+              <tr>
+                <th>Table</th>
+                <th>Category</th>
+                <th>Table ID</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="idTableBody"></tbody>
+          </table>
+
+          <div class="board-actions">
+            <button class="gen-btn primary" id="generateBtn" onclick="generateBoardScript()">
+              &#9889; Generate Board Script
+            </button>
+            <button class="gen-btn secondary" onclick="clearAllIds()">Clear All IDs</button>
+            <span id="idCount" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
+          </div>
+
+          <div class="board-script-output" id="boardScriptOutput">
+            <button class="board-script-copy" onclick="copyBoardScript()">Copy Script</button>
+            <pre class="board-script-pre" id="boardScriptPre"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="footer-links">
+        <a href="preflight-checklist.html">&#9989; Pre-Flight Checklist</a>
+        <a href="custom-metrics.html">&#128208; Custom Metrics Reference</a>
+        <a href="signals-guide.html">&#129504; SalesAI Signals Guide</a>
+      </div>
+      <div class="footer-note">Account Insights v1.0 — People.ai AI Play</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// DATA — 6 EDB Tables
+// ---------------------------------------------------------------------------
+
+const TABLES = [
+  {
+    id: "t1", emoji: "\uD83C\uDFAF", label: "ICP Fit Profiling", category: "ICP Fit",
+    color: "#275198",
+    desc: "Accounts matching your best-customer behavioral profile",
+    filter: "engagement > 0",
+    payload: {
+      name: "\uD83C\uDFAF ICP Fit Profiling",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$gt": 0 } }
+        ]},
+        columns: [
+          { alias: "t1-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t1-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t1-03", slug: "ootb_account_industry", agg: "unique" },
+          { alias: "t1-04", slug: "ootb_account_annual_revenue", agg: "unique" },
+          { alias: "t1-05", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t1-06", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t1-07", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t1-08", slug: "ootb_account_executive_engaged", variation_id: "ootb_account_executive_engaged_last_30_days", agg: "sum" },
+          { alias: "t1-09", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t1-10", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t1-11", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_30_days", agg: "sum" },
+          { alias: "t1-12", slug: "ootb_account_executive_activities", variation_id: "ootb_account_executive_activities_last_30_days", agg: "sum" },
+          { alias: "t1-13", slug: "ootb_account_closed_won_opportunities", variation_id: "ootb_account_closed_won_opportunities_last_fyear", agg: "sum" }
+        ],
+        sort: [{ slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", direction: "desc" }],
+        group_by: [], limit: 25
+      }
+    }
+  },
+  {
+    id: "t2", emoji: "\uD83E\uDD1D", label: "Relationship Health", category: "Relationship",
+    color: "#B08FA2",
+    desc: "Multi-threading depth and single-threaded risk",
+    filter: "engagement > 0 \u00B7 sort: asc (worst first)",
+    payload: {
+      name: "\uD83E\uDD1D Relationship Health",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$gt": 0 } }
+        ]},
+        columns: [
+          { alias: "t2-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t2-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t2-03", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t2-04", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t2-05", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t2-06", slug: "ootb_account_executive_engaged", variation_id: "ootb_account_executive_engaged_last_30_days", agg: "sum" },
+          { alias: "t2-07", slug: "ootb_account_executive_activities", variation_id: "ootb_account_executive_activities_last_30_days", agg: "sum" },
+          { alias: "t2-08", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_30_days", agg: "sum" },
+          { alias: "t2-09", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t2-10", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_7_days", agg: "sum" },
+          { alias: "t2-11", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t2-12", slug: "ootb_account_open_opportunities", variation_id: "ootb_account_open_opportunities_any_time", agg: "sum" },
+          { alias: "t2-13", slug: "ootb_account_annual_revenue", agg: "unique" }
+        ],
+        sort: [{ slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", direction: "asc" }],
+        group_by: [], limit: 25
+      }
+    }
+  },
+  {
+    id: "t3", emoji: "\uD83D\uDCC8", label: "Engagement Momentum", category: "Momentum",
+    color: "#6296AD",
+    desc: "Accounts heating up or cooling down",
+    filter: "engagement > 0",
+    payload: {
+      name: "\uD83D\uDCC8 Engagement Momentum",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$gt": 0 } }
+        ]},
+        columns: [
+          { alias: "t3-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t3-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t3-03", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t3-04", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t3-05", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_7_days", agg: "sum" },
+          { alias: "t3-06", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t3-07", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_7_days", agg: "sum" },
+          { alias: "t3-08", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t3-09", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t3-10", slug: "ootb_account_executive_engaged", variation_id: "ootb_account_executive_engaged_last_30_days", agg: "sum" },
+          { alias: "t3-11", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_7_days", agg: "sum" },
+          { alias: "t3-12", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_30_days", agg: "sum" }
+        ],
+        sort: [{ slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", direction: "desc" }],
+        group_by: [], limit: 25
+      }
+    }
+  },
+  {
+    id: "t4", emoji: "\uD83D\uDC8E", label: "Whitespace & Expansion", category: "Whitespace",
+    color: "#8FCDA8",
+    desc: "Customer accounts with disproportionate engagement",
+    filter: "engagement >= 50",
+    payload: {
+      name: "\uD83D\uDC8E Whitespace & Expansion",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$gte": 50 } }
+        ]},
+        columns: [
+          { alias: "t4-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t4-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t4-03", slug: "ootb_account_annual_revenue", agg: "unique" },
+          { alias: "t4-04", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t4-05", slug: "ootb_account_open_opportunities", variation_id: "ootb_account_open_opportunities_any_time", agg: "sum" },
+          { alias: "t4-06", slug: "ootb_account_closed_won_opportunities", variation_id: "ootb_account_closed_won_opportunities_last_fyear", agg: "sum" },
+          { alias: "t4-07", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t4-08", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t4-09", slug: "ootb_account_executive_engaged", variation_id: "ootb_account_executive_engaged_last_30_days", agg: "sum" },
+          { alias: "t4-10", slug: "ootb_account_executive_activities", variation_id: "ootb_account_executive_activities_last_30_days", agg: "sum" },
+          { alias: "t4-11", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t4-12", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t4-13", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_30_days", agg: "sum" }
+        ],
+        sort: [{ slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", direction: "desc" }],
+        group_by: [], limit: 25
+      }
+    }
+  },
+  {
+    id: "t5", emoji: "\uD83D\uDEA8", label: "Account Neglect", category: "Neglect",
+    color: "#C05527",
+    desc: "High-value accounts going dark",
+    filter: "engagement < 30 \u00B7 meetings \u2264 1",
+    payload: {
+      name: "\uD83D\uDEA8 Account Neglect",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$lt": 30 } },
+          { attribute: { slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days" }, clause: { "$lte": 1 } }
+        ]},
+        columns: [
+          { alias: "t5-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t5-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t5-03", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t5-04", slug: "ootb_account_annual_revenue", agg: "unique" },
+          { alias: "t5-05", slug: "ootb_account_open_opportunities", variation_id: "ootb_account_open_opportunities_any_time", agg: "sum" },
+          { alias: "t5-06", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t5-07", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_7_days", agg: "sum" },
+          { alias: "t5-08", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t5-09", slug: "ootb_account_count_of_emails_sent", variation_id: "ootb_account_count_of_emails_sent_last_30_days", agg: "sum" },
+          { alias: "t5-10", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t5-11", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t5-12", slug: "ootb_account_closed_won_opportunities", variation_id: "ootb_account_closed_won_opportunities_last_fyear", agg: "sum" }
+        ],
+        sort: [{ slug: "ootb_account_annual_revenue", direction: "desc" }],
+        group_by: [], limit: 25
+      }
+    }
+  },
+  {
+    id: "t6", emoji: "\uD83E\uDDE0", label: "Intelligence Summary", category: "Summary",
+    color: "#171721",
+    desc: "Master view across all categories",
+    filter: "engagement > 0",
+    payload: {
+      name: "\uD83E\uDDE0 Account Intelligence Summary",
+      object_type: "account", type: "table",
+      definition: {
+        object: "account", search: "",
+        filter: { "$and": [
+          { attribute: { slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0" }, clause: { "$gt": 0 } }
+        ]},
+        columns: [
+          { alias: "t6-01", slug: "ootb_account", agg: "unique" },
+          { alias: "t6-02", slug: "ootb_account_original_owner", agg: "unique" },
+          { alias: "t6-03", slug: "ootb_account_type", variation_id: "ootb_account_type_0", agg: "unique" },
+          { alias: "t6-04", slug: "ootb_account_annual_revenue", agg: "unique" },
+          { alias: "t6-05", slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", agg: "avg" },
+          { alias: "t6-06", slug: "ootb_account_people_engaged", variation_id: "ootb_account_people_engaged_last_30_days", agg: "sum" },
+          { alias: "t6-07", slug: "ootb_account_executive_engaged", variation_id: "ootb_account_executive_engaged_last_30_days", agg: "sum" },
+          { alias: "t6-08", slug: "ootb_account_count_of_meetings_standard", variation_id: "ootb_account_count_of_meetings_standard_last_30_days", agg: "sum" },
+          { alias: "t6-09", slug: "ootb_account_count_of_emails_received", variation_id: "ootb_account_count_of_emails_received_last_30_days", agg: "sum" },
+          { alias: "t6-10", slug: "ootb_account_open_opportunities", variation_id: "ootb_account_open_opportunities_any_time", agg: "sum" }
+        ],
+        sort: [{ slug: "ootb_account_engagement_level", variation_id: "ootb_account_engagement_level_0", direction: "desc" }],
+        group_by: [], limit: 25
+      }
+    }
+  }
+];
+
+// ---------------------------------------------------------------------------
+// STATE
+// ---------------------------------------------------------------------------
+const state = {
+  t1: null, t2: null, t3: null, t4: null, t5: null, t6: null,
+  board: false
+};
+
+// ---------------------------------------------------------------------------
+// RENDER CARDS
+// ---------------------------------------------------------------------------
+function renderCards() {
+  const grid = document.getElementById('edb-grid');
+
+  TABLES.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'deploy-card';
+    card.id = `card-${t.id}`;
+
+    const script = makeConsoleScript(t.payload);
+
+    card.innerHTML = `
+      <div class="card-top" id="card-top-${t.id}">
+        <div class="card-title-row">
+          <div class="card-title">${t.emoji} ${t.label}</div>
+          <div class="deployed-badge">\u2713 Deployed</div>
+        </div>
+        <div class="card-desc">${t.desc}</div>
+        <div class="card-filter">${t.filter}</div>
+      </div>
+      <div class="card-bottom">
+        <a class="bm-btn" id="bm-${t.id}"
+           style="background:${t.color};"
+           draggable="true" title="Drag to bookmarks bar">
+          \u26A1 AI ${t.id.toUpperCase().replace('T','')}: ${t.label}
+        </a>
+        <div class="id-row">
+          <span class="id-label">Table ID:</span>
+          <input class="id-input" id="input-${t.id}" type="text" placeholder="e.g. 108639"
+            oninput="onIdInput('${t.id}')" />
+          <button class="id-confirm" onclick="confirmId('${t.id}')">Confirm \u2713</button>
+        </div>
+        <button class="console-toggle" onclick="toggleConsole('con-${t.id}', this)">
+          <span>\u25B6</span> Show console script
+        </button>
+        <div class="console-block" id="con-${t.id}">
+          <button class="console-copy" onclick="copyScript('con-${t.id}')">Copy</button>
+          <pre class="console-pre">${escHtml(script)}</pre>
+        </div>
+      </div>`;
+
+    grid.appendChild(card);
+
+    // Set bookmarklet
+    document.getElementById(`bm-${t.id}`).href = makeBookmarklet(t.payload);
+  });
+
+  // Build ID table for board generator
+  buildIdTable();
+}
+
+// ---------------------------------------------------------------------------
+// BOARD ID TABLE
+// ---------------------------------------------------------------------------
+function buildIdTable() {
+  const tbody = document.getElementById('idTableBody');
+  const rows = [
+    { key: 't1', emoji: '\uD83C\uDFAF', label: 'ICP Fit Profiling', cat: 'ICP Fit' },
+    { key: 't2', emoji: '\uD83E\uDD1D', label: 'Relationship Health', cat: 'Relationship' },
+    { key: 't3', emoji: '\uD83D\uDCC8', label: 'Engagement Momentum', cat: 'Momentum' },
+    { key: 't4', emoji: '\uD83D\uDC8E', label: 'Whitespace & Expansion', cat: 'Whitespace' },
+    { key: 't5', emoji: '\uD83D\uDEA8', label: 'Account Neglect', cat: 'Neglect' },
+    { key: 't6', emoji: '\uD83E\uDDE0', label: 'Intelligence Summary', cat: 'Summary' },
+  ];
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.id = `id-row-${r.key}`;
+    tr.innerHTML = `
+      <td>${r.emoji} ${r.label}</td>
+      <td style="color:var(--text-muted);font-size:11px;">${r.cat}</td>
+      <td class="id-cell empty" id="id-cell-${r.key}">not yet deployed</td>
+      <td><span class="id-dot" id="id-dot-${r.key}"></span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ID HANDLING
+// ---------------------------------------------------------------------------
+function onIdInput(key) {
+  const input = document.getElementById(`input-${key}`);
+  input.classList.toggle('has-value', input.value.trim().length > 0);
+}
+
+function confirmId(key) {
+  const input = document.getElementById(`input-${key}`);
+  const val = input.value.trim();
+  if (!val) return;
+
+  state[key] = val;
+
+  // Mark card deployed
+  const card = document.getElementById(`card-${key}`);
+  card.classList.add('deployed');
+
+  // Update sidebar
+  const check = document.getElementById(`check-${key}`);
+  if (check) { check.textContent = '\u2713'; check.style.background = '#6296AD'; check.style.borderColor = '#6296AD'; check.style.color = '#ffffff'; }
+  document.getElementById(`nav-${key}`)?.classList.add('done');
+
+  // Update board ID table
+  const cell = document.getElementById(`id-cell-${key}`);
+  if (cell) { cell.textContent = val; cell.className = 'id-cell filled'; }
+  const dot = document.getElementById(`id-dot-${key}`);
+  if (dot) dot.classList.add('filled');
+
+  updateProgress();
+  checkBoardReady();
+}
+
+function clearAllIds() {
+  ['t1','t2','t3','t4','t5','t6'].forEach(k => { state[k] = null; });
+  TABLES.forEach(t => {
+    document.getElementById(`card-${t.id}`)?.classList.remove('deployed');
+    document.getElementById(`input-${t.id}`).value = '';
+    document.getElementById(`input-${t.id}`).classList.remove('has-value');
+    const check = document.getElementById(`check-${t.id}`);
+    if (check) { check.textContent = ''; check.style.background = ''; check.style.borderColor = ''; check.style.color = ''; }
+    document.getElementById(`nav-${t.id}`)?.classList.remove('done');
+    const cell = document.getElementById(`id-cell-${t.id}`);
+    if (cell) { cell.textContent = 'not yet deployed'; cell.className = 'id-cell empty'; }
+    const dot = document.getElementById(`id-dot-${t.id}`);
+    if (dot) dot.classList.remove('filled');
+  });
+  document.getElementById('boardScriptOutput').classList.remove('visible');
+  updateProgress();
+  checkBoardReady();
+}
+
+function checkBoardReady() {
+  const tableKeys = ['t1','t2','t3','t4','t5','t6'];
+  const allFilled = tableKeys.every(k => state[k]);
+  const btn = document.getElementById('generateBtn');
+  const pill = document.getElementById('boardStatusPill');
+  const filled = tableKeys.filter(k => state[k]).length;
+  btn.classList.toggle('active', allFilled);
+  document.getElementById('idCount').textContent = `${filled} / 6 IDs entered`;
+  if (allFilled) {
+    pill.textContent = '\u2713 Ready to generate'; pill.classList.add('ready');
+  } else {
+    pill.textContent = `Waiting for table IDs (${filled}/6)`; pill.classList.remove('ready');
+  }
+}
+
+function updateProgress() {
+  const deployed = ['t1','t2','t3','t4','t5','t6'].filter(k => state[k]).length + (state.board ? 1 : 0);
+  const total = 7;
+  document.getElementById('progressText').textContent = `${deployed} / ${total}`;
+  document.getElementById('progressFill').style.width = `${(deployed/total)*100}%`;
+}
+
+// ---------------------------------------------------------------------------
+// BOARD GENERATOR
+// ---------------------------------------------------------------------------
+function generateBoardScript() {
+  const ids = state;
+  const boardPayload = {
+    name: "\uD83E\uDDE0 Account Insights",
+    type: "board",
+    folderId: 0,
+    filters: { items: [], inline: [], popover: [] },
+    layout: [
+      { items: [{ direction: "row", height: 160, items: [{ direction: "column", items: [1] },{ direction: "column", items: [2] },{ direction: "column", items: [3] }], breakpoints: [4,4,4] }] },
+      { items: [{ direction: "row", height: 160, items: [{ direction: "column", items: [4] },{ direction: "column", items: [5] },{ direction: "column", items: [6] }], breakpoints: [4,4,4] }] }
+    ],
+    widgets: [
+      noteWidget(1, "\uD83C\uDFAF ICP Fit Profiling", `https://app.people.ai/table/${ids.t1}`, "Accounts matching your best-customer behavioral profile."),
+      noteWidget(2, "\uD83E\uDD1D Relationship Health", `https://app.people.ai/table/${ids.t2}`, "Multi-threading depth and single-threaded risk."),
+      noteWidget(3, "\uD83D\uDCC8 Engagement Momentum", `https://app.people.ai/table/${ids.t3}`, "Accounts heating up or cooling down."),
+      noteWidget(4, "\uD83D\uDC8E Whitespace & Expansion", `https://app.people.ai/table/${ids.t4}`, "Customer accounts with disproportionate engagement."),
+      noteWidget(5, "\uD83D\uDEA8 Account Neglect", `https://app.people.ai/table/${ids.t5}`, "High-value accounts going dark."),
+      noteWidget(6, "\uD83E\uDDE0 Intelligence Summary", `https://app.people.ai/table/${ids.t6}`, "Master view across all account insight categories.")
+    ]
+  };
+
+  const script = `(async () => {
+  const r = await fetch('/api/authentication/refresh-token');
+  if (!r.ok) { console.error('Not logged in'); return; }
+  const { token: t } = await r.json();
+  const payload = ${JSON.stringify(boardPayload, null, 2)};
+  const c = await fetch('https://glass-server.glass.people.ai/api/v2/people-ai/content', {
+    method: 'POST',
+    headers: { Authorization: t, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!c.ok) { const e = await c.text(); console.error('API error', c.status, e); return; }
+  const { id } = await c.json();
+  console.log('\u2705 Board created! ID:', id);
+  window.location.href = 'https://app.people.ai/board/' + id;
+})();`;
+
+  document.getElementById('boardScriptPre').textContent = script;
+  document.getElementById('boardScriptOutput').classList.add('visible');
+}
+
+function noteWidget(id, title, url, desc) {
+  return {
+    id, type: "note",
+    content: [
+      { type: "paragraph", style: { textAlign: "center" }, children: [{ bold: true, text: title }] },
+      { type: "paragraph", style: { textAlign: "center" }, children: [{ type: "link", url, children: [{ text: "Open Table \u2192", bold: true }] }] },
+      { type: "paragraph", style: { textAlign: "center" }, children: [{ italic: true, text: desc }] }
+    ]
+  };
+}
+
+function copyBoardScript() {
+  navigator.clipboard.writeText(document.getElementById('boardScriptPre').textContent).then(() => {
+    const btn = document.querySelector('.board-script-copy');
+    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy Script', 1800);
+
+    // Mark board as done
+    state.board = true;
+    const check = document.getElementById('check-board');
+    if (check) { check.textContent = '\u2713'; check.style.background = '#6296AD'; check.style.borderColor = '#6296AD'; check.style.color = '#ffffff'; }
+    updateProgress();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// SCRIPT GENERATORS
+// ---------------------------------------------------------------------------
+function makeConsoleScript(payload) {
+  return `(async () => {
+  const r = await fetch('/api/authentication/refresh-token');
+  if (!r.ok) { console.error('Not logged in'); return; }
+  const { token: t } = await r.json();
+  const p = ${JSON.stringify(payload, null, 2)};
+  const c = await fetch('https://glass-server.glass.people.ai/api/v2/people-ai/content', {
+    method: 'POST',
+    headers: { Authorization: t, 'Content-Type': 'application/json' },
+    body: JSON.stringify(p)
+  });
+  if (!c.ok) { const e = await c.text(); console.error('API error', c.status, e); return; }
+  const { id } = await c.json();
+  console.log('\u2705 Created! ID:', id, '\u2192 https://app.people.ai/table/' + id);
+  window.location.href = 'https://app.people.ai/table/' + id;
+})();`;
+}
+
+function makeBookmarklet(payload) {
+  const s = 'void(async()=>{'
+    + 'if(!location.origin.includes("people.ai")){alert("Navigate to app.people.ai first!");return;}'
+    + 'try{'
+    + 'const r=await fetch("/api/authentication/refresh-token");'
+    + 'if(!r.ok)throw "Not logged in";'
+    + 'const{token:t}=await r.json();'
+    + 'const p=' + JSON.stringify(payload) + ';'
+    + 'const c=await fetch("https://glass-server.glass.people.ai/api/v2/people-ai/content",{'
+    + 'method:"POST",headers:{Authorization:t,"Content-Type":"application/json"},body:JSON.stringify(p)});'
+    + 'if(!c.ok){c.text().then(e=>alert("API error "+c.status+": "+e));return;}'
+    + 'const{id:i}=await c.json();'
+    + 'location.href="https://app.people.ai/table/"+i;'
+    + '}catch(e){alert("Error: "+e);}'
+    + '})()';
+  return 'javascript:' + encodeURIComponent(s);
+}
+
+// ---------------------------------------------------------------------------
+// UI HELPERS
+// ---------------------------------------------------------------------------
+function toggleConsole(id, btn) {
+  const block = document.getElementById(id);
+  const open = block.classList.toggle('open');
+  btn.querySelector('span').textContent = open ? '\u25BC' : '\u25B6';
+}
+
+function copyScript(id) {
+  const pre = document.querySelector(`#${id} .console-pre`);
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    const btn = document.querySelector(`#${id} .console-copy`);
+    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1800);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---------------------------------------------------------------------------
+// SIDEBAR ACTIVE STATE
+// ---------------------------------------------------------------------------
+function initScrollSpy() {
+  const sections = document.querySelectorAll('[id]');
+  const navItems = document.querySelectorAll('.nav-item[href^="#"]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const match = document.querySelector(`.nav-item[href="#${entry.target.id}"]`);
+        if (match) match.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+}
+
+// ---------------------------------------------------------------------------
+// INIT
+// ---------------------------------------------------------------------------
+renderCards();
+initScrollSpy();
+updateProgress();
+checkBoardReady();
+</script>
+</body>
+</html>
