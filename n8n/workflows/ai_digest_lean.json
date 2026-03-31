@@ -1,0 +1,260 @@
+{
+  "name": "Account Insights - /ai Digest",
+  "nodes": [
+    {
+      "id": "d-001",
+      "name": "Slash Command Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "d8b95feb-e5d5-4994-9cee-e426e2584bd0",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-bot",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "d-002",
+      "name": "Acknowledge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"response_type\": \"in_channel\",\n  \"text\": \"\\u23f3 Running Account Insights analysis... I'll post results here in 2-4 minutes.\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "d-003",
+      "name": "Extract Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const w = $('Slash Command Webhook').first().json;\nconst b = w.body || w;\nfunction f(n) { return String(b[n] || w[n] || ''); }\nconst text = f('text').trim().toLowerCase();\nlet sub = 'digest', args = text;\nif (text.startsWith('help')) sub = 'help';\nelse if (text.startsWith('calibrate')) { sub = 'calibrate'; args = ''; }\nelse if (text.startsWith('target')) { sub = 'targets'; args = ''; }\nconst region = sub === 'digest' ? args.replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '';\nreturn [{ json: { userId: f('user_id'), userName: f('user_name'), channelId: f('channel_id'), responseUrl: f('response_url'), teamDomain: f('team_domain'), subcommand: sub, sales_region: region } }];"
+      }
+    },
+    {
+      "id": "d-004",
+      "name": "Get Auth Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/auth/tokens",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "zYedL8iWkGyY"
+            },
+            {
+              "name": "client_secret",
+              "value": "E0d2ErottkpSBcM1cQKjwxPtuTnyJxSFoSG1eUqyNKVPEslY"
+            },
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d-005",
+      "name": "Get Account Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_annual_revenue\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_30_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_30_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_30_days\"}, {\"slug\": \"ootb_account_people_internal_id\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, \"clause\": {\"$gt\": 0}}]}}",
+        "options": {}
+      }
+    },
+    {
+      "id": "d-006",
+      "name": "Parse and Filter Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const csvData = $json.data || '';\nif (!csvData.trim()) return [{ json: { _empty: true, neglected: [], surging: [], expansion: [] } }];\n\nfunction parseCSVLine(line) {\n  const vals = []; let inQ = false, cur = '';\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') { inQ = !inQ; continue; }\n    if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; continue; }\n    cur += c;\n  }\n  vals.push(cur.trim());\n  return vals;\n}\n\nconst lines = csvData.trim().split('\\n');\nconst headers = parseCSVLine(lines[0]);\nconsole.log('Headers:', headers.join(' | '));\n\nconst accounts = [];\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length < 3) continue;\n  const acc = {};\n  headers.forEach((h, idx) => acc[h] = vals[idx] || '');\n  accounts.push(acc);\n}\n\nconst toNum = s => { const n = Number(String(s || '0').replace(/[,$]/g, '')); return isFinite(n) ? n : 0; };\n\nconst enriched = accounts.map(a => ({\n  name: a['Account Name'] || 'Unknown',\n  owner: a['Account Owner (name)'] || a['Account Owner (id)'] || 'Unassigned',\n  engagement: toNum(a['Account Engagement Level']),\n  meetings: toNum(a['Meetings (Last 30 Days)']),\n  emailsSent: toNum(a['Emails Sent (Last 30 Days)']),\n  emailsRecv: toNum(a['Emails Received (Last 30 Days)']),\n  people: toNum(a['People Engaged (Last 30 Days)']),\n  execs: toNum(a['Executives Engaged (Last 30 Days)']),\n  execActs: toNum(a['Activities with Executives (C-Level) (Last 30 Days)']),\n  revenue: a['Annual Revenue'] || '',\n  paiId: a['People.ai Internal ID'] || ''\n}));\n\nconst neglected = enriched.filter(a => a.engagement <= 40 && a.meetings <= 2)\n  .sort((a, b) => toNum(b.revenue) - toNum(a.revenue)).slice(0, 10);\n\nconst surging = enriched.filter(a => a.engagement >= 70)\n  .sort((a, b) => b.engagement - a.engagement || b.meetings - a.meetings).slice(0, 10);\n\nconst expansion = enriched.filter(a => a.engagement >= 50 && a.people >= 3 && a.execs >= 1)\n  .sort((a, b) => b.engagement - a.engagement).slice(0, 10);\n\nconsole.log('Parsed ' + accounts.length + ': ' + neglected.length + ' neglected, ' + surging.length + ' surging, ' + expansion.length + ' expansion');\nreturn [{ json: { totalAccounts: accounts.length, neglected, surging, expansion } }];"
+      }
+    },
+    {
+      "id": "d-007",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const d = $json;\nconst cmd = $('Extract Command').first().json;\nconst date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction fmtList(items) {\n  if (!items || items.length === 0) return '_No accounts found matching criteria._';\n  return items.map((a, i) => {\n    const emails = a.emailsSent + a.emailsRecv;\n    const link = a.paiId ? '<https://app.people.ai/account/' + a.paiId + '|' + a.name + '>' : '*' + a.name + '*';\n    return (i+1) + '. ' + link + ' (' + a.owner + ')\\n' +\n      '    Eng: ' + a.engagement + ' | Mtgs: ' + a.meetings + ' | Emails: ' + emails +\n      ' | People: ' + a.people + ' | Execs: ' + a.execs +\n      (a.revenue ? ' | Rev: ' + a.revenue : '');\n  }).join('\\n');\n}\n\nconst text = '\\ud83c\\udfe2 *Account Insights Digest*\\n_' + date + '_\\n\\n' +\n  '\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 Low engagement, going dark\\n' + fmtList(d.neglected) + '\\n\\n' +\n  '\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Highest engagement\\n' + fmtList(d.surging) + '\\n\\n' +\n  '\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Broad engagement with exec access\\n' + fmtList(d.expansion) + '\\n\\n' +\n  '_' + d.totalAccounts + ' accounts analyzed \\u2022 People.ai + Claude AI_';\n\nreturn [{ json: { text, responseUrl: cmd.responseUrl } }];"
+      }
+    },
+    {
+      "id": "d-008",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1740,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.responseUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({response_type: 'in_channel', text: $json.text}) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Slash Command Webhook": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge": {
+      "main": [
+        [
+          {
+            "node": "Extract Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Command": {
+      "main": [
+        [
+          {
+            "node": "Get Auth Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Auth Token": {
+      "main": [
+        [
+          {
+            "node": "Get Account Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Account Data": {
+      "main": [
+        [
+          {
+            "node": "Parse and Filter Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Filter Accounts": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
