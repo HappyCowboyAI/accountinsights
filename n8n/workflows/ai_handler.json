@@ -1,0 +1,195 @@
+{
+  "name": "AI Slash Command Handler",
+  "nodes": [
+    {
+      "id": "h-001",
+      "name": "Slash Command Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-bot",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "h-002",
+      "name": "Extract Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const webhookData = $('Slash Command Webhook').first().json;\nfunction findField(name) {\n  if (webhookData.body && typeof webhookData.body === 'object' && webhookData.body[name] !== undefined) return String(webhookData.body[name]);\n  if (webhookData[name] !== undefined && webhookData[name] !== '') return String(webhookData[name]);\n  if (webhookData.body && typeof webhookData.body === 'string') { const p = new URLSearchParams(webhookData.body); const v = p.get(name); if (v) return v; }\n  return '';\n}\nconst text = (findField('text') || '').trim().toLowerCase();\nlet subcommand = 'digest', args = '';\nif (text.startsWith('calibrate')) { subcommand = 'calibrate'; args = text.replace(/^calibrate\\s*/, '').trim(); }\nelse if (text.startsWith('target')) { subcommand = 'targets'; args = text.replace(/^targets?\\s*/, '').trim(); }\nelse if (text.startsWith('help')) { subcommand = 'help'; }\nelse if (text) { args = text; }\nconst acks = { digest: 'Running Account Insights analysis (neglected, surging, expansion)... Results in 2-4 minutes.', calibrate: 'Running ICP Calibration \u2014 analyzing closed-won vs closed-lost accounts... Results in 3-5 minutes.', targets: 'Surfacing target accounts matching your ICP profile... Results in 1-2 minutes.', help: '' };\nreturn [{ json: { userId: findField('user_id'), userName: findField('user_name'), channelId: findField('channel_id'), responseUrl: findField('response_url'), commandText: findField('text'), teamDomain: findField('team_domain'), subcommand, args, sales_region: subcommand === 'digest' ? args.replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '', ackText: acks[subcommand] || acks.digest } }];"
+      }
+    },
+    {
+      "id": "h-003",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Help"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "allMatchingOutputs": false
+        }
+      }
+    },
+    {
+      "id": "h-004",
+      "name": "Send Help",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"response_type\":\"in_channel\",\"text\":\"\\ud83e\\udd16 *Account Insights \\u2014 /ai Commands*\\n\\n`/ai` \\u2014 Run the full account insights digest\\n`/ai <region>` \\u2014 Digest filtered by region\\n`/ai calibrate` \\u2014 ICP calibration (won vs lost)\\n`/ai targets` \\u2014 Surface unengaged ICP targets\\n`/ai help` \\u2014 This message\\n\\n_People.ai + Claude AI_\"}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "h-005",
+      "name": "Send Ack",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response_type: 'in_channel', text: '\\u23f3 ' + $json.ackText}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "h-006",
+      "name": "Trigger Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://scottai.trackslife.com/webhook/ai-worker",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({subcommand: $json.subcommand, args: $json.args, sales_region: $json.sales_region, userId: $json.userId, userName: $json.userName, channelId: $json.channelId, responseUrl: $json.responseUrl, teamDomain: $json.teamDomain}) }}",
+        "options": {
+          "timeout": 2000,
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Slash Command Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Command": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Send Help",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Ack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trigger Worker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

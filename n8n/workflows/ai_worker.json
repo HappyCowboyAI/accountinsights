@@ -1,37 +1,43 @@
 {
-  "name": "Account Insights \u2014 Unified /ai Slack Bot",
+  "name": "AI Worker",
   "nodes": [
     {
+      "id": "w-001",
+      "name": "Worker Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
       "parameters": {
         "httpMethod": "POST",
-        "path": "ai-bot",
-        "responseMode": "responseNode",
+        "path": "ai-worker",
         "options": {}
-      },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        1000,
-        2000
-      ],
-      "id": "aa110001-0001-4a01-b001-c00100010001",
-      "name": "Slash Command Webhook",
-      "webhookId": "5e6ebeb3-8213-4569-a609-42191c69177d"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "/**\n * Extract Slash Command Data - ROBUST VERSION\n * \n * n8n webhook nodes can put form-urlencoded POST data in different places:\n *   - $json.body (parsed object)\n *   - $json directly (top-level fields)\n *   - $json.body as a string (needs parsing)\n * \n * This code checks ALL possible locations with detailed logging.\n */\n\nconst webhookData = $('Slash Command Webhook').first().json;\n\nconsole.log('\ud83d\udce8 RAW WEBHOOK PAYLOAD:');\nconsole.log('   Top-level keys:', Object.keys(webhookData).join(', '));\n\nif (webhookData.body) {\n  console.log('   body type:', typeof webhookData.body);\n  if (typeof webhookData.body === 'object') {\n    console.log('   body keys:', Object.keys(webhookData.body).join(', '));\n  }\n}\n\nif (webhookData.headers) {\n  const ct = webhookData.headers['content-type'] || webhookData.headers['Content-Type'] || 'unknown';\n  console.log('   Content-Type:', ct);\n}\n\nfunction findField(fieldName) {\n  if (webhookData[fieldName] !== undefined && webhookData[fieldName] !== '') {\n    console.log(`   \u2705 ${fieldName} found at top-level: \"${webhookData[fieldName]}\"`);\n    return String(webhookData[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'object' && webhookData.body[fieldName] !== undefined) {\n    console.log(`   \u2705 ${fieldName} found in body: \"${webhookData.body[fieldName]}\"`);\n    return String(webhookData.body[fieldName]);\n  }\n  if (webhookData.body && typeof webhookData.body === 'string') {\n    const params = new URLSearchParams(webhookData.body);\n    const val = params.get(fieldName);\n    if (val) {\n      console.log(`   \u2705 ${fieldName} parsed from body string: \"${val}\"`);\n      return val;\n    }\n  }\n  if (webhookData.query && webhookData.query[fieldName]) {\n    console.log(`   \u2705 ${fieldName} found in query: \"${webhookData.query[fieldName]}\"`);\n    return String(webhookData.query[fieldName]);\n  }\n  if (webhookData.params && webhookData.params[fieldName]) {\n    console.log(`   \u2705 ${fieldName} found in params: \"${webhookData.params[fieldName]}\"`);\n    return String(webhookData.params[fieldName]);\n  }\n  console.log(`   \u274c ${fieldName} NOT FOUND in any location`);\n  return '';\n}\n\nconsole.log('\\n\ud83d\udd0d Searching for slash command fields:');\n\nconst userId = findField('user_id');\nconst userName = findField('user_name');\nconst channelId = findField('channel_id');\nconst channelName = findField('channel_name');\nconst responseUrl = findField('response_url');\nconst commandText = findField('text');\nconst teamDomain = findField('team_domain');\n\nconsole.log('\\n\ud83d\udcca EXTRACTED VALUES:');\nconsole.log(`   \ud83d\udc64 User: @${userName} (${userId})`);\nconsole.log(`   \ud83d\udcfa Channel: #${channelName} (${channelId})`);\nconsole.log(`   \ud83d\udd17 Response URL: ${responseUrl ? responseUrl.substring(0, 60) + '...' : 'MISSING'}`);\nconsole.log(`   \ud83d\udcdd Text: \"${commandText}\"`);\n\nif (!userId) {\n  console.error('\ud83d\udea8 CRITICAL: No user_id found! Full payload dump:');\n  console.error(JSON.stringify(webhookData, null, 2).substring(0, 2000));\n}\n\nreturn [{\n  json: {\n    userId,\n    userName,\n    channelId,\n    channelName,\n    responseUrl,\n    commandText,\n    teamDomain,\n    _raw: webhookData\n  }\n}];\n"
-      },
-      "id": "aa110001-0002-4a02-b002-c00100010003",
-      "name": "Extract Slash Command Data",
+      "id": "w-002",
+      "name": "Extract Worker Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1224,
-        2000
-      ]
+        420,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const d = $json.body || $json;\nconsole.log('Worker received:', JSON.stringify(d).substring(0, 200));\nreturn [{ json: { subcommand: d.subcommand || 'digest', args: d.args || '', sales_region: d.sales_region || '', userId: d.userId || '', userName: d.userName || '', channelId: d.channelId || '', responseUrl: d.responseUrl || '', teamDomain: d.teamDomain || '' } }];"
+      }
     },
     {
+      "id": "w-003",
+      "name": "Get User Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        400
+      ],
       "parameters": {
         "url": "=https://slack.com/api/users.info?user={{ $json.userId }}",
         "authentication": "genericCredentialType",
@@ -47,14 +53,6 @@
         },
         "options": {}
       },
-      "id": "aa110001-0003-4a03-b003-c00100010004",
-      "name": "Get User Email from Slack",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1448,
-        2000
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "LluVuiMJ8NUbAiG7",
@@ -63,261 +61,27 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "/**\n * Merge User Context - ROBUST VERSION\n * Handles cases where email scope might be missing\n */\n\nconst slashData = $('Extract Slash Command Data').first().json;\nconst slackResponse = $input.first().json;\n\nconsole.log('\ud83d\udc64 Slack API Response keys:', Object.keys(slackResponse).join(', '));\nconsole.log('   ok:', slackResponse.ok);\n\nconst userObj = slackResponse.user || {};\nconst userProfile = userObj.profile || {};\nlet userEmail = userProfile.email || userObj.email || '';\n\nif (!userEmail && slackResponse.profile) {\n  userEmail = slackResponse.profile.email || '';\n}\n\nconst realName = userObj.real_name || userProfile.real_name || slashData.userName || 'there';\n\nconsole.log('\ud83d\udce7 Email extraction:');\nconsole.log('   user.profile.email:', userProfile.email || '(not present)');\nconsole.log('   user.email:', userObj.email || '(not present)');\nconsole.log('   Final email:', userEmail || '(NONE - bot may lack users:read.email scope)');\nconsole.log('   Real name:', realName);\nconsole.log('   Channel ID:', slashData.channelId);\nconsole.log('   Response URL:', slashData.responseUrl ? 'Present' : 'MISSING');\n\nif (!userEmail) {\n  console.warn('\u26a0\ufe0f No email found. Possible fixes:');\n  console.warn('   1. Add \"users:read.email\" scope to your Slack bot');\n  console.warn('   2. Reinstall the app after adding the scope');\n}\n\nreturn [{\n  json: {\n    userId: slashData.userId,\n    userName: slashData.userName,\n    realName: realName,\n    userEmail: userEmail,\n    channelId: slashData.channelId,\n    channelName: slashData.channelName,\n    responseUrl: slashData.responseUrl,\n    commandText: slashData.commandText,\n    teamDomain: slashData.teamDomain\n  }\n}];\n"
-      },
-      "id": "aa110001-0004-4a04-b004-c00100010005",
-      "name": "Merge User Context",
+      "id": "w-004",
+      "name": "Merge Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1672,
-        2000
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const text = ($json.commandText || '').trim().toLowerCase();\n\n// Parse subcommand and remaining args\nlet subcommand = 'digest';  // default\nlet args = '';\n\nif (text.startsWith('calibrate')) {\n  subcommand = 'calibrate';\n  args = text.replace(/^calibrate\\s*/, '').trim();\n} else if (text.startsWith('targets') || text.startsWith('target')) {\n  subcommand = 'targets';\n  args = text.replace(/^targets?\\s*/, '').trim();\n} else if (text.startsWith('help')) {\n  subcommand = 'help';\n} else if (text) {\n  // Anything else is treated as a region filter for the digest\n  subcommand = 'digest';\n  args = text;  // region name\n}\n\nreturn [{\n  json: {\n    ...($json),\n    subcommand,\n    args,\n    sales_region: subcommand === 'digest' ? \n      args.replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : ''\n  }\n}];\n"
-      },
-      "id": "aa110001-0005-4a05-b005-c00100010006",
-      "name": "Command Router",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1896,
-        2000
-      ]
-    },
-    {
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "aa110001-sw01-4a01-b001-c00100010001",
-                    "leftValue": "={{ $json.subcommand }}",
-                    "rightValue": "digest",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Digest"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "aa110001-sw02-4a02-b002-c00100010002",
-                    "leftValue": "={{ $json.subcommand }}",
-                    "rightValue": "calibrate",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Calibrate"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "aa110001-sw03-4a03-b003-c00100010003",
-                    "leftValue": "={{ $json.subcommand }}",
-                    "rightValue": "targets",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Targets"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "aa110001-sw04-4a04-b004-c00100010004",
-                    "leftValue": "={{ $json.subcommand }}",
-                    "rightValue": "help",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Help"
-            }
-          ]
-        },
-        "options": {
-          "fallbackOutput": "none"
-        }
-      },
-      "id": "aa110001-0006-4a06-b006-c00100010007",
-      "name": "Route by Subcommand",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        2120,
-        2000
-      ]
-    },
-    {
-      "id": "aa110001-0007-4a07-b007-c00100010008",
-      "name": "Send Help Message",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        2344,
-        2600
+        860,
+        400
       ],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"response_type\":\"in_channel\",\"text\":\"\\ud83e\\udd16 *Account Insights \\u2014 /ai Commands*\\n\\n`/ai` \\u2014 Run the full account insights digest\\n`/ai <region>` \\u2014 Digest filtered by region\\n`/ai calibrate` \\u2014 ICP calibration (won vs lost)\\n`/ai targets` \\u2014 Unengaged ICP target accounts\\n`/ai help` \\u2014 This message\\n\\n_People.ai + Claude AI_\"}",
-        "options": {
-          "responseCode": 200
-        }
+        "jsCode": "const cmd = $('Extract Worker Data').first().json;\nconst slack = $json;\nconst userObj = (slack.user || {});\nconst profile = userObj.profile || {};\nconst email = profile.email || userObj.email || '';\nconst realName = userObj.real_name || profile.real_name || cmd.userName || 'there';\nreturn [{ json: { ...cmd, userEmail: email, realName: realName } }];"
       }
     },
     {
-      "parameters": {
-        "jsCode": "/**\n * Generate Ack Message based on subcommand\n */\nconst subcommand = $json.subcommand || 'digest';\nconst salesRegion = $json.sales_region || '';\n\nlet ackText = '';\n\nswitch (subcommand) {\n  case 'digest':\n    ackText = '\u23f3 Running Account Insights analysis (3 insight types: Neglected, Surging, Expansion)... This typically takes 2-4 minutes as I analyze account activity, detect engagement patterns, and identify opportunities. I\\'ll post the full report here when done!';\n    if (salesRegion) {\n      ackText += ` (filtered to ${salesRegion})`;\n    }\n    break;\n  case 'calibrate':\n    ackText = '\u23f3 Running ICP Calibration \u2014 analyzing 30 winners vs 30 losers + 15 MCP deep dives... This takes 3-5 minutes as I deep-dive accounts via MCP to extract your win pattern fingerprint.';\n    break;\n  case 'targets':\n    ackText = '\u23f3 Surfacing target accounts matching your ICP profile... This typically takes 1-2 minutes.';\n    break;\n  default:\n    ackText = '\u23f3 Processing your request...';\n}\n\nreturn [{\n  json: {\n    ...($json),\n    ackText\n  }\n}];\n"
-      },
-      "id": "aa110001-0008-4a08-b008-c00100010009",
-      "name": "Generate Ack Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w-005",
+      "name": "Get Auth Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        2344,
-        1600
-      ]
-    },
-    {
-      "id": "aa110001-0009-4a09-b009-c00100010010",
-      "name": "Acknowledge Slash Command",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        2568,
-        1600
+        1080,
+        400
       ],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({response_type: 'in_channel', text: '\\u23f3 ' + $json.ackText}) }}",
-        "options": {
-          "responseCode": 200
-        }
-      }
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "name": "slack_channel",
-              "type": "string",
-              "value": "={{ $('Merge User Context').first().json.channelId }}",
-              "id": "fix-01"
-            },
-            {
-              "name": "user_email",
-              "type": "string",
-              "value": "={{ $('Merge User Context').first().json.userEmail }}",
-              "id": "fix-02"
-            },
-            {
-              "name": "user_name",
-              "type": "string",
-              "value": "={{ $('Merge User Context').first().json.realName }}",
-              "id": "fix-03"
-            },
-            {
-              "name": "response_url",
-              "type": "string",
-              "value": "={{ $('Command Router').first().json.responseUrl }}",
-              "id": "fix-04"
-            },
-            {
-              "name": "peopleai_client_id",
-              "type": "string",
-              "value": "=zYedL8iWkGyY",
-              "id": "fix-05"
-            },
-            {
-              "name": "peopleai_client_secret",
-              "type": "string",
-              "value": "=E0d2ErottkpSBcM1cQKjwxPtuTnyJxSFoSG1eUqyNKVPEslY",
-              "id": "fix-06"
-            },
-            {
-              "name": "sales_region",
-              "type": "string",
-              "value": "={{ $('Command Router').first().json.sales_region || '' }}",
-              "id": "fix-07"
-            },
-            {
-              "name": "subcommand",
-              "type": "string",
-              "value": "={{ $('Command Router').first().json.subcommand }}",
-              "id": "fix-08"
-            },
-            {
-              "name": "args",
-              "type": "string",
-              "value": "={{ $('Command Router').first().json.args || '' }}",
-              "id": "fix-09"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "aa110001-0010-4a10-b010-c00100010011",
-      "name": "Workflow Parameters",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        2792,
-        1600
-      ]
-    },
-    {
       "parameters": {
         "method": "POST",
         "url": "https://api.people.ai/v3/auth/tokens",
@@ -336,11 +100,11 @@
           "parameters": [
             {
               "name": "client_id",
-              "value": "={{ $('Workflow Parameters').first().json.peopleai_client_id }}"
+              "value": "zYedL8iWkGyY"
             },
             {
               "name": "client_secret",
-              "value": "={{ $('Workflow Parameters').first().json.peopleai_client_secret }}"
+              "value": "E0d2ErottkpSBcM1cQKjwxPtuTnyJxSFoSG1eUqyNKVPEslY"
             },
             {
               "name": "grant_type",
@@ -349,18 +113,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "aa110001-0011-4a11-b011-c00100010012",
-      "name": "Get People.ai Auth Token",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3016,
-        1600
-      ],
-      "notes": "Get OAuth token from People.ai. Client ID and secret now referenced from Workflow Parameters node."
+      }
     },
     {
+      "id": "w-006",
+      "name": "Branch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1300,
+        400
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -373,8 +136,8 @@
                 },
                 "conditions": [
                   {
-                    "id": "aa110001-br01-4a01-b001-c00100010001",
-                    "leftValue": "={{ $('Workflow Parameters').first().json.subcommand }}",
+                    "id": "b1",
+                    "leftValue": "={{ $('Extract Worker Data').first().json.subcommand }}",
                     "rightValue": "digest",
                     "operator": {
                       "type": "string",
@@ -396,8 +159,8 @@
                 },
                 "conditions": [
                   {
-                    "id": "aa110001-br02-4a02-b002-c00100010002",
-                    "leftValue": "={{ $('Workflow Parameters').first().json.subcommand }}",
+                    "id": "b2",
+                    "leftValue": "={{ $('Extract Worker Data').first().json.subcommand }}",
                     "rightValue": "calibrate",
                     "operator": {
                       "type": "string",
@@ -419,8 +182,8 @@
                 },
                 "conditions": [
                   {
-                    "id": "aa110001-br03-4a03-b003-c00100010003",
-                    "leftValue": "={{ $('Workflow Parameters').first().json.subcommand }}",
+                    "id": "b3",
+                    "leftValue": "={{ $('Extract Worker Data').first().json.subcommand }}",
                     "rightValue": "targets",
                     "operator": {
                       "type": "string",
@@ -435,18 +198,8 @@
             }
           ]
         },
-        "options": {
-          "fallbackOutput": "none"
-        }
-      },
-      "id": "aa110001-0012-4a12-b012-c00100010013",
-      "name": "Branch After Auth",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        3240,
-        1600
-      ]
+        "options": {}
+      }
     },
     {
       "id": "aa110002-0001-4b01-b101-c00200010001",
@@ -469,7 +222,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Get People.ai Auth Token').first().json.access_token }}"
+              "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
             }
           ]
         },
@@ -935,7 +688,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format the Account Insights Digest for Slack\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '`$0`';\n  if (amount >= 1000000) return `\\`$${(amount / 1000000).toFixed(1)}M\\``;\n  if (amount >= 1000) return `\\`$${Math.round(amount / 1000)}K\\``;\n  return `\\`$${Math.round(amount)}\\``;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<https://app.people.ai/crm/account/${peopleaiId}|${accountName}>`;\n}\n\nconst userName = $('Workflow Parameters').first().json.user_name || 'there';\nconst salesRegion = $('Workflow Parameters').first().json.sales_region || '';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\\ud83c\\udfe2 *Account Insights Digest*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n`;\nif (salesRegion) {\n  message += `\\ud83c\\udf0d Region: ${salesRegion}\\n`;\n}\nmessage += `\\n`;\n\n// SECTION 1: NEGLECTED ACCOUNTS\nconst neglected = data.neglectedAccounts || [];\nmessage += `\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 High-value accounts going dark\\n`;\n\nif (neglected.length > 0) {\n  neglected.forEach((acct, idx) => {\n    const riskEmoji = acct.riskLevel === 'critical' ? '\\ud83d\\udd34' : acct.riskLevel === 'high' ? '\\ud83d\\udfe0' : '\\ud83d\\udfe1';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${riskEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 Emails(30d): ${acct.emails30d}\\n`;\n    if (acct.neglectReason) {\n      message += `   \\u26a0\\ufe0f _${truncate(acct.neglectReason, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No neglected accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 2: SURGING ACCOUNTS\nconst surging = data.surgingAccounts || [];\nmessage += `\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Accounts showing acceleration\\n`;\n\nif (surging.length > 0) {\n  surging.forEach((acct, idx) => {\n    const sigEmoji = acct.buyingSignal === 'yes' ? '\\ud83d\\udfe2' : acct.buyingSignal === 'maybe' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    const accelRatio = acct.meetings30d > 0 ? (acct.meetings7d / acct.meetings30d).toFixed(2) : 'N/A';\n    message += `${idx + 1}. ${sigEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}%\\n`;\n    message += `   Meetings: ${acct.meetings7d}(7d)/${acct.meetings30d}(30d) \\u2022 Accel: ${accelRatio} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.surgeDriver) {\n      message += `   \\ud83d\\udd0e _${truncate(acct.surgeDriver, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No surging accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 3: EXPANSION CANDIDATES\nconst expansion = data.expansionCandidates || [];\nmessage += `\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Customers ready for more\\n`;\n\nif (expansion.length > 0) {\n  expansion.forEach((acct, idx) => {\n    const potEmoji = acct.expansionPotential === 'high' ? '\\ud83d\\udfe2' : acct.expansionPotential === 'medium' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${potEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.expansionSignals) {\n      message += `   \\ud83d\\udca1 _${truncate(acct.expansionSignals, 80)}_\\n`;\n    }\n    if (acct.estimatedValue) {\n      message += `   \\ud83d\\udcb0 _Est. expansion: ${truncate(acct.estimatedValue, 60)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No expansion candidates detected_\\n\\n`;\n}\n\nmessage += `\\n_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Workflow Parameters').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nconsole.log('\\ud83d\\udce7 Slack message formatted:', message.length, 'characters');\n\nreturn [{\n  json: {\n    message,\n    ...data\n  }\n}];"
+        "jsCode": "// Format the Account Insights Digest for Slack\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '`$0`';\n  if (amount >= 1000000) return `\\`$${(amount / 1000000).toFixed(1)}M\\``;\n  if (amount >= 1000) return `\\`$${Math.round(amount / 1000)}K\\``;\n  return `\\`$${Math.round(amount)}\\``;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<https://app.people.ai/crm/account/${peopleaiId}|${accountName}>`;\n}\n\nconst userName = $('Extract Worker Data').first().json.user_name || 'there';\nconst salesRegion = $('Extract Worker Data').first().json.sales_region || '';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\\ud83c\\udfe2 *Account Insights Digest*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n`;\nif (salesRegion) {\n  message += `\\ud83c\\udf0d Region: ${salesRegion}\\n`;\n}\nmessage += `\\n`;\n\n// SECTION 1: NEGLECTED ACCOUNTS\nconst neglected = data.neglectedAccounts || [];\nmessage += `\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 High-value accounts going dark\\n`;\n\nif (neglected.length > 0) {\n  neglected.forEach((acct, idx) => {\n    const riskEmoji = acct.riskLevel === 'critical' ? '\\ud83d\\udd34' : acct.riskLevel === 'high' ? '\\ud83d\\udfe0' : '\\ud83d\\udfe1';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${riskEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 Emails(30d): ${acct.emails30d}\\n`;\n    if (acct.neglectReason) {\n      message += `   \\u26a0\\ufe0f _${truncate(acct.neglectReason, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No neglected accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 2: SURGING ACCOUNTS\nconst surging = data.surgingAccounts || [];\nmessage += `\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Accounts showing acceleration\\n`;\n\nif (surging.length > 0) {\n  surging.forEach((acct, idx) => {\n    const sigEmoji = acct.buyingSignal === 'yes' ? '\\ud83d\\udfe2' : acct.buyingSignal === 'maybe' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    const accelRatio = acct.meetings30d > 0 ? (acct.meetings7d / acct.meetings30d).toFixed(2) : 'N/A';\n    message += `${idx + 1}. ${sigEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}%\\n`;\n    message += `   Meetings: ${acct.meetings7d}(7d)/${acct.meetings30d}(30d) \\u2022 Accel: ${accelRatio} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.surgeDriver) {\n      message += `   \\ud83d\\udd0e _${truncate(acct.surgeDriver, 80)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No surging accounts detected_\\n\\n`;\n}\n\nmessage += `\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n\\n`;\n\n// SECTION 3: EXPANSION CANDIDATES\nconst expansion = data.expansionCandidates || [];\nmessage += `\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Customers ready for more\\n`;\n\nif (expansion.length > 0) {\n  expansion.forEach((acct, idx) => {\n    const potEmoji = acct.expansionPotential === 'high' ? '\\ud83d\\udfe2' : acct.expansionPotential === 'medium' ? '\\ud83d\\udfe1' : '\\u26aa';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    message += `${idx + 1}. ${potEmoji} ${accountLink} \\u2022 ${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev\\n`;\n    message += `   Eng: ${acct.engagementLevel}% \\u2022 Meetings(30d): ${acct.meetings30d} \\u2022 People: ${acct.externalPeople30d} \\u2022 Execs: ${acct.engagedExecs30d}\\n`;\n    if (acct.expansionSignals) {\n      message += `   \\ud83d\\udca1 _${truncate(acct.expansionSignals, 80)}_\\n`;\n    }\n    if (acct.estimatedValue) {\n      message += `   \\ud83d\\udcb0 _Est. expansion: ${truncate(acct.estimatedValue, 60)}_\\n`;\n    }\n    if (acct.recommendation) {\n      message += `   \\u2192 _${truncate(acct.recommendation, 80)}_\\n`;\n    }\n  });\n  message += `\\n`;\n} else {\n  message += `_No expansion candidates detected_\\n\\n`;\n}\n\nmessage += `\\n_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Extract Worker Data').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nconsole.log('\\ud83d\\udce7 Slack message formatted:', message.length, 'characters');\n\nreturn [{\n  json: {\n    message,\n    ...data\n  }\n}];"
       },
       "id": "aa110002-0027-4b27-b127-c00200010027",
       "name": "Format Digest Slack Message",
@@ -949,7 +702,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Workflow Parameters').first().json.response_url }}",
+        "url": "={{ $('Extract Worker Data').first().json.response_url }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -975,7 +728,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Format the Account Insights Digest for Email - HTML VERSION\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '$0';\n  if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;\n  if (amount >= 1000) return `$${Math.round(amount / 1000)}K`;\n  return `$${Math.round(amount)}`;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<a href=\"https://app.people.ai/crm/account/${peopleaiId}\" style=\"color: #3b82f6; text-decoration: none;\">${accountName}</a>`;\n}\n\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\nconst salesRegion = $('Workflow Parameters').first().json.sales_region || '';\n\nconst neglected = data.neglectedAccounts || [];\nconst surging = data.surgingAccounts || [];\nconst expansion = data.expansionCandidates || [];\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Account Insights Digest</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\\ud83c\\udfe2 Account Insights Digest</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">${today}${salesRegion ? ' \\u2022 ' + salesRegion : ''} \\u2022 3 Insight Types</p></div><div style=\"padding: 32px;\">`;\n\n// NEGLECTED\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #dc2626; padding-bottom: 8px;\">\\ud83d\\udea8 Neglected Accounts</h2><div style=\"background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #991b1b;\">High-value accounts going dark \\u2022 ${neglected.length} accounts</p></div>`;\nif (neglected.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  neglected.forEach((acct, idx) => {\n    const riskColor = acct.riskLevel === 'critical' ? '#dc2626' : acct.riskLevel === 'high' ? '#ea580c' : '#ca8a04';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 <span style=\"color: ${riskColor}; font-weight: 600;\">${(acct.riskLevel || 'medium').toUpperCase()} RISK</span></div><div style=\"color: #6b7280; font-size: 13px; margin-bottom: 6px;\">${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev \\u2022 Eng: ${acct.engagementLevel}%</div>`;\n    if (acct.neglectReason) html += `<div style=\"color: #991b1b; font-size: 13px; font-style: italic; background-color: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.neglectReason, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No neglected accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// SURGING\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #10b981; padding-bottom: 8px;\">\\ud83d\\udcc8 Surging Accounts</h2><div style=\"background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #065f46;\">Accounts showing acceleration \\u2022 ${surging.length} accounts</p></div>`;\nif (surging.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  surging.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 Eng: ${acct.engagementLevel}%</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Meetings: ${acct.meetings7d || 0}(7d)/${acct.meetings30d || 0}(30d)</div>`;\n    if (acct.surgeDriver) html += `<div style=\"color: #065f46; font-size: 13px; font-style: italic; background-color: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.surgeDriver, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No surging accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// EXPANSION\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #8b5cf6; padding-bottom: 8px;\">\\ud83d\\udc8e Expansion Candidates</h2><div style=\"background-color: #f5f3ff; border-left: 4px solid #8b5cf6; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #5b21b6;\">Customers ready for more \\u2022 ${expansion.length} candidates</p></div>`;\nif (expansion.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  expansion.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 ${formatCurrency(acct.annualRevenue)} rev</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}% \\u2022 People: ${acct.externalPeople30d || 0} \\u2022 Execs: ${acct.engagedExecs30d || 0}</div>`;\n    if (acct.expansionSignals) html += `<div style=\"color: #5b21b6; font-size: 13px; font-style: italic; background-color: #f5f3ff; padding: 8px; border-radius: 4px;\">\\ud83d\\udca1 ${truncate(acct.expansionSignals, 120)}</div>`;\n    if (acct.estimatedValue) html += `<div style=\"color: #5b21b6; font-size: 13px; font-weight: 600;\">\\ud83d\\udcb0 Est: ${truncate(acct.estimatedValue, 80)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No expansion candidates detected</p>`;\n}\nhtml += `</div>`;\n\nhtml += `</div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0 0 8px 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Account Insights Digest - ${today}` } }];"
+        "jsCode": "// Format the Account Insights Digest for Email - HTML VERSION\nconst data = $input.first().json;\n\nfunction formatCurrency(amount) {\n  if (!amount || isNaN(amount)) return '$0';\n  if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;\n  if (amount >= 1000) return `$${Math.round(amount / 1000)}K`;\n  return `$${Math.round(amount)}`;\n}\n\nfunction truncate(text, maxLength) {\n  if (!text) return '';\n  if (text.length <= maxLength) return text;\n  return text.substring(0, maxLength - 1) + '\\u2026';\n}\n\nfunction createAccountLink(peopleaiId, accountName) {\n  if (!peopleaiId) return accountName;\n  return `<a href=\"https://app.people.ai/crm/account/${peopleaiId}\" style=\"color: #3b82f6; text-decoration: none;\">${accountName}</a>`;\n}\n\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\nconst salesRegion = $('Extract Worker Data').first().json.sales_region || '';\n\nconst neglected = data.neglectedAccounts || [];\nconst surging = data.surgingAccounts || [];\nconst expansion = data.expansionCandidates || [];\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Account Insights Digest</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\\ud83c\\udfe2 Account Insights Digest</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">${today}${salesRegion ? ' \\u2022 ' + salesRegion : ''} \\u2022 3 Insight Types</p></div><div style=\"padding: 32px;\">`;\n\n// NEGLECTED\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #dc2626; padding-bottom: 8px;\">\\ud83d\\udea8 Neglected Accounts</h2><div style=\"background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #991b1b;\">High-value accounts going dark \\u2022 ${neglected.length} accounts</p></div>`;\nif (neglected.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  neglected.forEach((acct, idx) => {\n    const riskColor = acct.riskLevel === 'critical' ? '#dc2626' : acct.riskLevel === 'high' ? '#ea580c' : '#ca8a04';\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 <span style=\"color: ${riskColor}; font-weight: 600;\">${(acct.riskLevel || 'medium').toUpperCase()} RISK</span></div><div style=\"color: #6b7280; font-size: 13px; margin-bottom: 6px;\">${acct.accountOwner} \\u2022 ${formatCurrency(acct.annualRevenue)} rev \\u2022 Eng: ${acct.engagementLevel}%</div>`;\n    if (acct.neglectReason) html += `<div style=\"color: #991b1b; font-size: 13px; font-style: italic; background-color: #fef2f2; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.neglectReason, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No neglected accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// SURGING\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #10b981; padding-bottom: 8px;\">\\ud83d\\udcc8 Surging Accounts</h2><div style=\"background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #065f46;\">Accounts showing acceleration \\u2022 ${surging.length} accounts</p></div>`;\nif (surging.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  surging.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 Eng: ${acct.engagementLevel}%</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Meetings: ${acct.meetings7d || 0}(7d)/${acct.meetings30d || 0}(30d)</div>`;\n    if (acct.surgeDriver) html += `<div style=\"color: #065f46; font-size: 13px; font-style: italic; background-color: #ecfdf5; padding: 8px; border-radius: 4px; margin-bottom: 4px;\">${truncate(acct.surgeDriver, 120)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No surging accounts detected</p>`;\n}\nhtml += `</div>`;\n\n// EXPANSION\nhtml += `<div style=\"margin-bottom: 40px;\"><h2 style=\"color: #1f2937; font-size: 24px; margin: 0 0 16px 0; border-bottom: 3px solid #8b5cf6; padding-bottom: 8px;\">\\ud83d\\udc8e Expansion Candidates</h2><div style=\"background-color: #f5f3ff; border-left: 4px solid #8b5cf6; padding: 16px; margin-bottom: 16px; border-radius: 4px;\"><p style=\"margin: 0; font-size: 14px; color: #5b21b6;\">Customers ready for more \\u2022 ${expansion.length} candidates</p></div>`;\nif (expansion.length > 0) {\n  html += `<table style=\"width: 100%; border-collapse: collapse;\">`;\n  expansion.forEach((acct, idx) => {\n    const accountLink = createAccountLink(acct.peopleaiId, acct.accountName);\n    html += `<tr style=\"border-bottom: 1px solid #e5e7eb;\"><td style=\"padding: 16px 8px; font-size: 14px; width: 40px; color: #6b7280; vertical-align: top;\">${idx + 1}.</td><td style=\"padding: 16px 8px; font-size: 14px;\"><div style=\"margin-bottom: 6px;\">${accountLink} \\u2022 ${formatCurrency(acct.annualRevenue)} rev</div><div style=\"color: #6b7280; font-size: 13px;\">${acct.accountOwner} \\u2022 Eng: ${acct.engagementLevel}% \\u2022 People: ${acct.externalPeople30d || 0} \\u2022 Execs: ${acct.engagedExecs30d || 0}</div>`;\n    if (acct.expansionSignals) html += `<div style=\"color: #5b21b6; font-size: 13px; font-style: italic; background-color: #f5f3ff; padding: 8px; border-radius: 4px;\">\\ud83d\\udca1 ${truncate(acct.expansionSignals, 120)}</div>`;\n    if (acct.estimatedValue) html += `<div style=\"color: #5b21b6; font-size: 13px; font-weight: 600;\">\\ud83d\\udcb0 Est: ${truncate(acct.estimatedValue, 80)}</div>`;\n    if (acct.recommendation) html += `<div style=\"color: #065f46; font-size: 13px;\">\\u2192 ${truncate(acct.recommendation, 120)}</div>`;\n    html += `</td></tr>`;\n  });\n  html += `</table>`;\n} else {\n  html += `<p style=\"color: #6b7280; font-style: italic;\">No expansion candidates detected</p>`;\n}\nhtml += `</div>`;\n\nhtml += `</div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0 0 8px 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Account Insights Digest - ${today}` } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1032,7 +785,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Get People.ai Auth Token').first().json.access_token }}"
+              "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
             }
           ]
         },
@@ -1095,7 +848,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Get People.ai Auth Token').first().json.access_token }}"
+              "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
             }
           ]
         },
@@ -1343,7 +1096,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Format Slack Message for Calibration\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $('Workflow Parameters').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83c\udfaf *ICP Calibration Complete*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Save this fingerprint \\u2014 it's now the reference for ICP Fit scoring._\\n`;\nmessage += `_Powered by ICP Calibration \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Workflow Parameters').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawFingerprint: aiOutput } }];\n"
+        "jsCode": "/**\n * Format Slack Message for Calibration\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $('Extract Worker Data').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83c\udfaf *ICP Calibration Complete*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Save this fingerprint \\u2014 it's now the reference for ICP Fit scoring._\\n`;\nmessage += `_Powered by ICP Calibration \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Extract Worker Data').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawFingerprint: aiOutput } }];\n"
       },
       "id": "aa110003-0018-4c18-c118-d00300010018",
       "name": "Format Calibration Slack Message",
@@ -1357,7 +1110,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Workflow Parameters').first().json.response_url }}",
+        "url": "={{ $('Extract Worker Data').first().json.response_url }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1383,7 +1136,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Format Email for Calibration\n */\n\nconst aiOutput = $input.first().json.rawFingerprint || $input.first().json.message || '';\nconst userName = $('Workflow Parameters').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/\\|(.+)\\|/g, function(match) {\n      const cells = match.split('|').filter(c => c.trim());\n      if (cells.every(c => /^[\\s-:]+$/.test(c))) return '';\n      const isHeader = cells.every(c => /^\\s*[A-Z]/.test(c.trim()));\n      const tag = isHeader ? 'th' : 'td';\n      const style = isHeader\n        ? 'style=\"padding: 10px 12px; background-color: #7c3aed; color: white; font-size: 12px; text-align: left; font-weight: 600;\"'\n        : 'style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px;\"';\n      return '<tr>' + cells.map(c => `<${tag} ${style}>${c.trim()}</${tag}>`).join('') + '</tr>';\n    })\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<tr>')) {\n    html = html.replace(/(<tr>.*?<\\/tr>)+/gs, '<table style=\"width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid #e5e7eb;\">$&</table>');\n  }\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>ICP Calibration</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83c\udfaf ICP Calibration Complete</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Win Pattern Fingerprint \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by ICP Calibration \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `ICP Calibration - Win Pattern Fingerprint - ${today}` } }];\n"
+        "jsCode": "/**\n * Format Email for Calibration\n */\n\nconst aiOutput = $input.first().json.rawFingerprint || $input.first().json.message || '';\nconst userName = $('Extract Worker Data').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/\\|(.+)\\|/g, function(match) {\n      const cells = match.split('|').filter(c => c.trim());\n      if (cells.every(c => /^[\\s-:]+$/.test(c))) return '';\n      const isHeader = cells.every(c => /^\\s*[A-Z]/.test(c.trim()));\n      const tag = isHeader ? 'th' : 'td';\n      const style = isHeader\n        ? 'style=\"padding: 10px 12px; background-color: #7c3aed; color: white; font-size: 12px; text-align: left; font-weight: 600;\"'\n        : 'style=\"padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px;\"';\n      return '<tr>' + cells.map(c => `<${tag} ${style}>${c.trim()}</${tag}>`).join('') + '</tr>';\n    })\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<tr>')) {\n    html = html.replace(/(<tr>.*?<\\/tr>)+/gs, '<table style=\"width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid #e5e7eb;\">$&</table>');\n  }\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>ICP Calibration</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83c\udfaf ICP Calibration Complete</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Win Pattern Fingerprint \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by ICP Calibration \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `ICP Calibration - Win Pattern Fingerprint - ${today}` } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1440,7 +1193,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Get People.ai Auth Token').first().json.access_token }}"
+              "value": "=Bearer {{ $('Get Auth Token').first().json.access_token }}"
             }
           ]
         },
@@ -1530,7 +1283,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Format Targets Slack Message\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $('Workflow Parameters').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83d\ude80 *Target Account Surfacing*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Workflow Parameters').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawTargets: aiOutput } }];\n"
+        "jsCode": "/**\n * Format Targets Slack Message\n */\n\nconst aiOutput = $input.first().json.output || $input.first().json.text || $input.first().json.response || '';\n\nconst userName = $('Extract Worker Data').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nlet message = `\ud83d\ude80 *Target Account Surfacing*\\n`;\nmessage += `Requested by @${userName} \\u2022 ${today}\\n\\n`;\nmessage += aiOutput;\nmessage += `\\n\\n\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\n`;\nmessage += `_Powered by Account Insights \\u2022 People.ai + Claude AI_\\n`;\n\nconst userEmail = $('Extract Worker Data').first().json.user_email;\nif (userEmail) {\n  message += `_\\ud83d\\udce7 Full HTML report also sent to ${userEmail}_\\n`;\n}\n\nreturn [{ json: { message, rawTargets: aiOutput } }];\n"
       },
       "id": "aa110004-0006-4d06-d106-e00400010006",
       "name": "Format Targets Slack Message",
@@ -1544,7 +1297,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Workflow Parameters').first().json.response_url }}",
+        "url": "={{ $('Extract Worker Data').first().json.response_url }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1570,7 +1323,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Format Targets Email\n */\n\nconst aiOutput = $input.first().json.rawTargets || $input.first().json.message || '';\nconst userName = $('Workflow Parameters').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Target Account Surfacing</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83d\ude80 Target Account Surfacing</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Unengaged ICP Matches \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Target Account Surfacing - ${today}` } }];\n"
+        "jsCode": "/**\n * Format Targets Email\n */\n\nconst aiOutput = $input.first().json.rawTargets || $input.first().json.message || '';\nconst userName = $('Extract Worker Data').first().json.user_name || 'there';\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction markdownToHtml(text) {\n  let html = text\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.+?)\\*/g, '<em>$1</em>')\n    .replace(/^-\\s+(.+)$/gm, '<li style=\"margin-bottom: 6px; font-size: 14px;\">$1</li>')\n    .replace(/^(\\d+)\\.\\s+(.+)$/gm, '<li style=\"margin-bottom: 8px; font-size: 14px;\"><strong>$1.</strong> $2</li>')\n    .replace(/\\n\\n/g, '</p><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">')\n    .replace(/\\n/g, '<br>');\n\n  if (html.includes('<li')) {\n    html = html.replace(/(<li[^>]*>.*?<\\/li>)+/gs, '<ul style=\"margin: 12px 0; padding-left: 24px;\">$&</ul>');\n  }\n\n  return html;\n}\n\nconst bodyHtml = markdownToHtml(aiOutput);\n\nlet html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Target Account Surfacing</title></head><body style=\"margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\"><div style=\"max-width: 800px; margin: 0 auto; background-color: #ffffff;\"><div style=\"background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; padding: 40px 32px; text-align: center;\"><h1 style=\"margin: 0; font-size: 32px; font-weight: 700;\">\ud83d\ude80 Target Account Surfacing</h1><p style=\"margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;\">Unengaged ICP Matches \\u2022 ${today}</p><p style=\"margin: 4px 0 0 0; font-size: 14px; opacity: 0.75;\">Requested by ${userName}</p></div><div style=\"padding: 32px;\"><p style=\"margin: 12px 0; font-size: 14px; line-height: 1.6; color: #374151;\">${bodyHtml}</p></div><div style=\"background-color: #f9fafb; padding: 24px 32px; border-top: 1px solid #e5e7eb; text-align: center;\"><p style=\"margin: 0; color: #6b7280; font-size: 13px;\">Powered by Account Insights \\u2022 People.ai + Claude AI \\u2022 ${today}</p></div></div></body></html>`;\n\nreturn [{ json: { htmlEmail: html, subject: `Target Account Surfacing - ${today}` } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1607,169 +1360,7 @@
       }
     }
   ],
-  "pinData": {},
   "connections": {
-    "Slash Command Webhook": {
-      "main": [
-        [
-          {
-            "node": "Extract Slash Command Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Slash Command Data": {
-      "main": [
-        [
-          {
-            "node": "Get User Email from Slack",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get User Email from Slack": {
-      "main": [
-        [
-          {
-            "node": "Merge User Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge User Context": {
-      "main": [
-        [
-          {
-            "node": "Command Router",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Command Router": {
-      "main": [
-        [
-          {
-            "node": "Route by Subcommand",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Route by Subcommand": {
-      "main": [
-        [
-          {
-            "node": "Generate Ack Message",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Generate Ack Message",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Generate Ack Message",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Send Help Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate Ack Message": {
-      "main": [
-        [
-          {
-            "node": "Acknowledge Slash Command",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Acknowledge Slash Command": {
-      "main": [
-        [
-          {
-            "node": "Workflow Parameters",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Workflow Parameters": {
-      "main": [
-        [
-          {
-            "node": "Get People.ai Auth Token",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get People.ai Auth Token": {
-      "main": [
-        [
-          {
-            "node": "Branch After Auth",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Branch After Auth": {
-      "main": [
-        [
-          {
-            "node": "Get Account Data",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Get Winners",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get Losers",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Get Low Engagement Accounts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Account Data": {
       "main": [
         [
@@ -2400,18 +1991,64 @@
           }
         ]
       ]
+    },
+    "Worker Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Worker Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Worker Data": {
+      "main": [
+        [
+          {
+            "node": "Get User Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Email": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context": {
+      "main": [
+        [
+          {
+            "node": "Get Auth Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Auth Token": {
+      "main": [
+        [
+          {
+            "node": "Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
   "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": false
-  },
-  "versionId": "unified-v1-2026-0330-0001",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "4dd7a54cbf3c3ec35a460541c7470b86ad06fde74ed99585c44045ec74f97461"
-  },
-  "id": "AI-AccountInsights-Unified",
-  "tags": []
+    "executionOrder": "v1"
+  }
 }

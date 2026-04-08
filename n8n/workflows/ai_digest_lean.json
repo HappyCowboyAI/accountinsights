@@ -2,15 +2,15 @@
   "name": "Account Insights - /ai Digest",
   "nodes": [
     {
-      "id": "d-001",
-      "name": "Slash Command Webhook",
+      "id": "ec230db9-4005-4335-883e-cb73c28b1432",
+      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
+      "webhookId": "9549feff-1b47-424a-8e69-3a4ba46cfabe",
       "position": [
         200,
-        400
+        600
       ],
-      "webhookId": "d8b95feb-e5d5-4994-9cee-e426e2584bd0",
       "parameters": {
         "httpMethod": "POST",
         "path": "ai-bot",
@@ -19,43 +19,149 @@
       }
     },
     {
-      "id": "d-002",
-      "name": "Acknowledge",
+      "id": "3dcb5e12-ae34-4507-8e5a-d5034099dae1",
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        600
+      ],
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json;\nconst b = w.body || w;\nfunction f(n) { return String(b[n] || w[n] || ''); }\nconst text = f('text').trim().toLowerCase();\nlet sub = 'digest', args = '';\nif (text.startsWith('help')) sub = 'help';\nelse if (text.startsWith('calibrate')) { sub = 'calibrate'; args = text.replace(/^calibrate\\s*/, ''); }\nelse if (text.startsWith('target')) { sub = 'targets'; args = text.replace(/^targets?\\s*/, ''); }\nelse if (text) { args = text; }\nconst region = sub === 'digest' ? args.trim().replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '';\nconst acks = {\n  digest: '\\u23f3 Running Account Insights digest... Results in 1-2 minutes.',\n  calibrate: '\\u23f3 Running ICP Calibration \\u2014 analyzing closed-won vs closed-lost accounts... Results in 3-5 minutes.',\n  targets: '\\u23f3 Surfacing ICP target accounts... Results in 1-2 minutes.'\n};\nreturn [{ json: {\n  userId: f('user_id'), userName: f('user_name'), channelId: f('channel_id'),\n  responseUrl: f('response_url'), teamDomain: f('team_domain'),\n  subcommand: sub, args, sales_region: region,\n  ackText: acks[sub] || acks.digest\n}}];"
+      }
+    },
+    {
+      "id": "aa49d8d1-206a-4b66-9d9b-85e775128420",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        600
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "calibrate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Calibrate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $json.subcommand }}",
+                    "rightValue": "targets",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Targets"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "allMatchingOutputs": false
+        }
+      }
+    },
+    {
+      "id": "f0caf527-258a-4724-91a1-e04c24449d91",
+      "name": "Help Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        420,
+        880,
         400
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"response_type\": \"in_channel\",\n  \"text\": \"\\u23f3 Running Account Insights analysis... I'll post results here in 2-4 minutes.\"\n}",
+        "responseBody": "{\"response_type\":\"in_channel\",\"text\":\"\\ud83e\\udd16 *Account Insights \\u2014 /ai Commands*\\n\\n`/ai` \\u2014 Full account insights digest (neglected, surging, expansion)\\n`/ai <region>` \\u2014 Digest filtered by sales region\\n`/ai calibrate` \\u2014 ICP calibration: analyze won vs lost engagement patterns\\n`/ai targets` \\u2014 Surface unengaged accounts matching your ICP\\n`/ai help` \\u2014 This message\\n\\n_People.ai + Claude AI_\"}",
         "options": {
           "responseCode": 200
         }
       }
     },
     {
-      "id": "d-003",
-      "name": "Extract Command",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "68d66550-bed0-4c57-bdcd-a1c72b3152e6",
+      "name": "Ack",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
       "position": [
-        640,
-        400
+        880,
+        700
       ],
       "parameters": {
-        "jsCode": "const w = $('Slash Command Webhook').first().json;\nconst b = w.body || w;\nfunction f(n) { return String(b[n] || w[n] || ''); }\nconst text = f('text').trim().toLowerCase();\nlet sub = 'digest', args = text;\nif (text.startsWith('help')) sub = 'help';\nelse if (text.startsWith('calibrate')) { sub = 'calibrate'; args = ''; }\nelse if (text.startsWith('target')) { sub = 'targets'; args = ''; }\nconst region = sub === 'digest' ? args.replace(/\\w\\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : '';\nreturn [{ json: { userId: f('user_id'), userName: f('user_name'), channelId: f('channel_id'), responseUrl: f('response_url'), teamDomain: f('team_domain'), subcommand: sub, sales_region: region } }];"
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response_type: 'in_channel', text: $json.ackText}) }}",
+        "options": {
+          "responseCode": 200
+        }
       }
     },
     {
-      "id": "d-004",
+      "id": "3d670862-38bb-4c91-a6b8-638767f2466c",
       "name": "Get Auth Token",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        860,
-        400
+        1100,
+        700
       ],
       "parameters": {
         "method": "POST",
@@ -91,13 +197,79 @@
       }
     },
     {
-      "id": "d-005",
-      "name": "Get Account Data",
+      "id": "1bcc8add-05ef-4cc3-bd95-1b248d78d245",
+      "name": "Branch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1320,
+        700
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "b1",
+                    "leftValue": "={{ $('Parse Command').first().json.subcommand }}",
+                    "rightValue": "calibrate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Calibrate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "b2",
+                    "leftValue": "={{ $('Parse Command').first().json.subcommand }}",
+                    "rightValue": "targets",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Targets"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "allMatchingOutputs": false
+        }
+      }
+    },
+    {
+      "id": "ea365f01-2dc7-4ba9-99ab-e1636bbc29ad",
+      "name": "Get Digest Data",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1080,
-        400
+        1560,
+        900
       ],
       "parameters": {
         "method": "POST",
@@ -117,44 +289,163 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_annual_revenue\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_30_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_30_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_30_days\"}, {\"slug\": \"ootb_account_people_internal_id\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, \"clause\": {\"$gt\": 0}}]}}",
+        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_7_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_30_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_30_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_30_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_30_days\"}, {\"slug\": \"ootb_account_people_internal_id\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, \"clause\": {\"$gt\": 0}}]}}",
         "options": {}
       }
     },
     {
-      "id": "d-006",
-      "name": "Parse and Filter Accounts",
+      "id": "8e899413-0851-4b93-9aa0-4616b1fe6c9d",
+      "name": "Analyze Digest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1300,
-        400
+        1780,
+        900
       ],
       "parameters": {
-        "jsCode": "const csvData = $json.data || '';\nif (!csvData.trim()) return [{ json: { _empty: true, neglected: [], surging: [], expansion: [] } }];\n\nfunction parseCSVLine(line) {\n  const vals = []; let inQ = false, cur = '';\n  for (let i = 0; i < line.length; i++) {\n    const c = line[i];\n    if (c === '\"') { inQ = !inQ; continue; }\n    if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; continue; }\n    cur += c;\n  }\n  vals.push(cur.trim());\n  return vals;\n}\n\nconst lines = csvData.trim().split('\\n');\nconst headers = parseCSVLine(lines[0]);\nconsole.log('Headers:', headers.join(' | '));\n\nconst accounts = [];\nfor (let i = 1; i < lines.length; i++) {\n  const vals = parseCSVLine(lines[i]);\n  if (vals.length < 3) continue;\n  const acc = {};\n  headers.forEach((h, idx) => acc[h] = vals[idx] || '');\n  accounts.push(acc);\n}\n\nconst toNum = s => { const n = Number(String(s || '0').replace(/[,$]/g, '')); return isFinite(n) ? n : 0; };\n\nconst enriched = accounts.map(a => ({\n  name: a['Account Name'] || 'Unknown',\n  owner: a['Account Owner (name)'] || a['Account Owner (id)'] || 'Unassigned',\n  engagement: toNum(a['Account Engagement Level']),\n  meetings: toNum(a['Meetings (Last 30 Days)']),\n  emailsSent: toNum(a['Emails Sent (Last 30 Days)']),\n  emailsRecv: toNum(a['Emails Received (Last 30 Days)']),\n  people: toNum(a['People Engaged (Last 30 Days)']),\n  execs: toNum(a['Executives Engaged (Last 30 Days)']),\n  execActs: toNum(a['Activities with Executives (C-Level) (Last 30 Days)']),\n  revenue: a['Annual Revenue'] || '',\n  paiId: a['People.ai Internal ID'] || ''\n}));\n\nconst neglected = enriched.filter(a => a.engagement <= 40 && a.meetings <= 2)\n  .sort((a, b) => toNum(b.revenue) - toNum(a.revenue)).slice(0, 10);\n\nconst surging = enriched.filter(a => a.engagement >= 70)\n  .sort((a, b) => b.engagement - a.engagement || b.meetings - a.meetings).slice(0, 10);\n\nconst expansion = enriched.filter(a => a.engagement >= 50 && a.people >= 3 && a.execs >= 1)\n  .sort((a, b) => b.engagement - a.engagement).slice(0, 10);\n\nconsole.log('Parsed ' + accounts.length + ': ' + neglected.length + ' neglected, ' + surging.length + ' surging, ' + expansion.length + ' expansion');\nreturn [{ json: { totalAccounts: accounts.length, neglected, surging, expansion } }];"
+        "jsCode": "function parseCSV(csvData) {\n  if (!csvData || !csvData.trim()) return [];\n  function parseLine(line) { const v=[]; let q=false,c=''; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch==='\"'){q=!q;continue;} if(ch===','&&!q){v.push(c.trim());c='';continue;} c+=ch;} v.push(c.trim()); return v; }\n  const lines = csvData.trim().split('\\n');\n  const headers = parseLine(lines[0]);\n  console.log('Headers:', headers.join(' | '));\n  const rows = [];\n  for (let i=1; i<lines.length; i++) { const v=parseLine(lines[i]); if(v.length<3)continue; const r={}; headers.forEach((h,idx)=>r[h]=v[idx]||''); rows.push(r); }\n  return rows;\n}\nconst n = s => { const x=Number(String(s||'0').replace(/[,$]/g,'')); return isFinite(x)?x:0; };\n\nconst accs = parseCSV($json.data || '');\nif (!accs.length) return [{ json: { text: 'No account data.', responseUrl: $('Parse Command').first().json.responseUrl } }];\n\nconst enriched = accs.map(a => ({\n  name: a['Account Name']||'?', owner: a['Account Owner (name)']||a['Account Owner (id)']||'?',\n  eng: n(a['Account Engagement Level']), industry: a['Industry']||'',\n  mtg30: n(a['Meetings (Last 30 Days)']), mtg7: n(a['Meetings (Last 7 Days)']),\n  eS: n(a['Emails Sent (Last 30 Days)']), eR: n(a['Emails Received (Last 30 Days)']),\n  ppl: n(a['People Engaged (Last 30 Days)']), execs: n(a['Executives Engaged (Last 30 Days)']),\n  execActs: n(a['Activities with Executives (C-Level) (Last 30 Days)']),\n  pid: a['People.ai Internal ID']||'',\n  // Computed\n  get emails() { return this.eS + this.eR; },\n  get mtgRatio() { return this.mtg30 + this.emails > 0 ? Math.round(this.mtg30/(this.mtg30+this.emails)*100) : 0; },\n  get momentum() { return this.mtg30 > 0 ? Math.round(this.mtg7 / this.mtg30 * 4.286 * 100)/100 : 0; },\n  get respRate() { return this.eS > 0 ? Math.round(this.eR/this.eS*100)/100 : 0; }\n}));\n\n// Neglected: low engagement, minimal meetings\nconst neglected = enriched.filter(a => a.eng <= 40 && a.mtg30 <= 2)\n  .sort((a,b) => b.eng - a.eng).slice(0, 10);\n\n// Surging: high engagement AND momentum (7d vs 30d ratio > 1.0 = accelerating)\nconst surging = enriched.filter(a => a.eng >= 65)\n  .sort((a,b) => b.momentum - a.momentum || b.eng - a.eng).slice(0, 10);\n\n// Expansion: broad engagement with exec access\nconst expansion = enriched.filter(a => a.eng >= 50 && a.ppl >= 3 && a.execs >= 1)\n  .sort((a,b) => b.ppl - a.ppl || b.eng - a.eng).slice(0, 10);\n\nfunction fmt(items) {\n  if (!items.length) return '_None found._';\n  return items.map((a, i) => {\n    const lnk = a.pid ? '<https://app.people.ai/account/'+a.pid+'|'+a.name+'>' : '*'+a.name+'*';\n    return (i+1)+'. '+lnk+' ('+a.owner+')' + (a.industry ? ' \\u2022 '+a.industry : '') + '\\n' +\n      '    Eng: '+a.eng+' | Mtgs: '+a.mtg30+' ('+a.mtg7+' this wk) | Emails: '+a.emails+\n      ' | People: '+a.ppl+' | Execs: '+a.execs+\n      ' | Momentum: '+(a.momentum > 1 ? '\\ud83d\\udcc8 ' : a.momentum < 0.5 ? '\\ud83d\\udcc9 ' : '')+a.momentum+'x';\n  }).join('\\n');\n}\n\nconst date = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});\nconst text = '\\ud83c\\udfe2 *Account Insights Digest*\\n_'+date+'_\\n\\n'+\n  '\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 Low engagement, fading\\n'+fmt(neglected)+'\\n\\n'+\n  '\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Highest momentum\\n'+fmt(surging)+'\\n\\n'+\n  '\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Multi-threaded with exec access\\n'+fmt(expansion)+'\\n\\n'+\n  '_'+enriched.length+' accounts analyzed \\u2022 People.ai + Claude AI_';\nreturn [{json:{text, responseUrl: $('Parse Command').first().json.responseUrl}}];"
       }
     },
     {
-      "id": "d-007",
-      "name": "Format Slack Message",
+      "id": "98bb016b-cf01-4f14-887a-2803f78a1be5",
+      "name": "Get Winners",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_type\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_90_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_90_days\"}, {\"slug\": \"ootb_account_closed_won_opportunities\", \"variation_id\": \"ootb_account_closed_won_opportunities_last_90_days\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_closed_won_opportunities\", \"variation_id\": \"ootb_account_closed_won_opportunities_last_90_days\"}, \"clause\": {\"$gt\": 0}}, {\"attribute\": {\"slug\": \"ootb_account_engagement_level\"}, \"clause\": {\"$gt\": 0}}]}}",
+        "options": {}
+      }
+    },
+    {
+      "id": "759c9033-8f7c-40c9-bf56-472ffbbf1e72",
+      "name": "Get Losers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_type\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_sent\", \"variation_id\": \"ootb_account_count_of_emails_sent_last_90_days\"}, {\"slug\": \"ootb_account_count_of_emails_received\", \"variation_id\": \"ootb_account_count_of_emails_received_last_90_days\"}, {\"slug\": \"ootb_account_people_engaged\", \"variation_id\": \"ootb_account_people_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_engaged\", \"variation_id\": \"ootb_account_executive_engaged_last_90_days\"}, {\"slug\": \"ootb_account_executive_activities\", \"variation_id\": \"ootb_account_executive_activities_last_90_days\"}, {\"slug\": \"ootb_account_closed_lost_opportunities\", \"variation_id\": \"ootb_account_closed_lost_opportunities_last_90_days\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_closed_lost_opportunities\", \"variation_id\": \"ootb_account_closed_lost_opportunities_last_90_days\"}, \"clause\": {\"$gt\": 0}}, {\"attribute\": {\"slug\": \"ootb_account_engagement_level\"}, \"clause\": {\"$gt\": 0}}]}}",
+        "options": {}
+      }
+    },
+    {
+      "id": "abcbb3e4-3041-4046-8a8d-0eacf2635a86",
+      "name": "Merge Calibration",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1780,
+        550
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "1b71daac-c621-4e2f-82e1-89ef7c53b619",
+      "name": "Analyze Calibration",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1520,
-        400
+        2000,
+        550
       ],
       "parameters": {
-        "jsCode": "const d = $json;\nconst cmd = $('Extract Command').first().json;\nconst date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });\n\nfunction fmtList(items) {\n  if (!items || items.length === 0) return '_No accounts found matching criteria._';\n  return items.map((a, i) => {\n    const emails = a.emailsSent + a.emailsRecv;\n    const link = a.paiId ? '<https://app.people.ai/account/' + a.paiId + '|' + a.name + '>' : '*' + a.name + '*';\n    return (i+1) + '. ' + link + ' (' + a.owner + ')\\n' +\n      '    Eng: ' + a.engagement + ' | Mtgs: ' + a.meetings + ' | Emails: ' + emails +\n      ' | People: ' + a.people + ' | Execs: ' + a.execs +\n      (a.revenue ? ' | Rev: ' + a.revenue : '');\n  }).join('\\n');\n}\n\nconst text = '\\ud83c\\udfe2 *Account Insights Digest*\\n_' + date + '_\\n\\n' +\n  '\\ud83d\\udea8 *NEGLECTED ACCOUNTS* \\u2014 Low engagement, going dark\\n' + fmtList(d.neglected) + '\\n\\n' +\n  '\\ud83d\\udcc8 *SURGING ACCOUNTS* \\u2014 Highest engagement\\n' + fmtList(d.surging) + '\\n\\n' +\n  '\\ud83d\\udc8e *EXPANSION CANDIDATES* \\u2014 Broad engagement with exec access\\n' + fmtList(d.expansion) + '\\n\\n' +\n  '_' + d.totalAccounts + ' accounts analyzed \\u2022 People.ai + Claude AI_';\n\nreturn [{ json: { text, responseUrl: cmd.responseUrl } }];"
+        "jsCode": "function parseCSV(csvData) {\n  if (!csvData || !csvData.trim()) return [];\n  function parseLine(line) { const v=[]; let q=false,c=''; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch==='\"'){q=!q;continue;} if(ch===','&&!q){v.push(c.trim());c='';continue;} c+=ch;} v.push(c.trim()); return v; }\n  const lines = csvData.trim().split('\\n');\n  const h = parseLine(lines[0]);\n  console.log('Headers:', h.join(' | '));\n  const rows = [];\n  for (let i=1; i<lines.length; i++) { const v=parseLine(lines[i]); if(v.length<3)continue; const r={}; h.forEach((hh,idx)=>r[hh]=v[idx]||''); rows.push(r); }\n  return rows;\n}\nconst n = s => { const x=Number(String(s||'0').replace(/[,$]/g,'')); return isFinite(x)?x:0; };\n\nconst items = $input.all();\nconst winners = parseCSV(items[0] ? items[0].json.data || '' : '');\nconst losers = parseCSV(items[1] ? items[1].json.data || '' : '');\n\nfunction analyze(accs) {\n  if (!accs.length) return null;\n  const vals = accs.map(a => ({\n    eng: n(a['Account Engagement Level']),\n    mtg90: n(a['Meetings (Last 90 Days)']), \n    eS: n(a['Emails Sent (Last 90 Days)']), eR: n(a['Emails Received (Last 90 Days)']),\n    ppl: n(a['People Engaged (Last 90 Days)']), execs: n(a['Executives Engaged (Last 90 Days)']),\n    execActs: n(a['Activities with Executives (C-Level) (Last 90 Days)']),\n    industry: a['Industry']||'Unknown', type: a['Account Type']||'Unknown'\n  }));\n  const avg = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*10)/10;\n  const pct = fn => Math.round(vals.reduce((s,a)=>s+fn(a),0)/vals.length*100);\n  // Industry breakdown\n  const indMap = {};\n  vals.forEach(v => { indMap[v.industry] = (indMap[v.industry]||0)+1; });\n  const topInd = Object.entries(indMap).sort((a,b)=>b[1]-a[1]).slice(0,5)\n    .map(([ind,ct]) => ind+' ('+Math.round(ct/vals.length*100)+'%)');\n  // Account type breakdown\n  const typeMap = {};\n  vals.forEach(v => { typeMap[v.type] = (typeMap[v.type]||0)+1; });\n  const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,3)\n    .map(([t,ct]) => t+' ('+Math.round(ct/vals.length*100)+'%)');\n\n  return {\n    count: accs.length,\n    eng: avg(a=>a.eng), mtg90: avg(a=>a.mtg90), \n    emails: avg(a=>a.eS+a.eR), emailsSent: avg(a=>a.eS), emailsRecv: avg(a=>a.eR),\n    ppl: avg(a=>a.ppl), execs: avg(a=>a.execs), execActs: avg(a=>a.execActs),\n    mtgRatio: pct(a => { const t=a.mtg90+a.eS+a.eR; return t>0?a.mtg90/t:0; }),\n    execPct: pct(a => a.ppl>0 ? Math.min(a.execs/a.ppl, 1) : 0),\n    respRate: Math.round(vals.reduce((s,a)=>s+(a.eS>0?a.eR/a.eS:0),0)/vals.length*100)/100,\n    \n    topInd, topTypes\n  };\n}\n\nconst w = analyze(winners);\nconst l = analyze(losers);\nif (!w || !l) return [{json:{text:'Insufficient data for calibration.',responseUrl:$('Parse Command').first().json.responseUrl}}];\n\nconst gap = (wv,lv,s) => { const d=Math.round((wv-lv)*10)/10; return (d>0?'+':'')+d+(s||''); };\nconst date = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});\n\nconst text = '\\ud83c\\udfaf *ICP Calibration \\u2014 Win Pattern Fingerprint*\\n_'+date+'_\\n_'+w.count+' won vs '+l.count+' lost (last 90 days, with current engagement > 0)_\\n\\n'+\n  '*\\ud83d\\udcca Behavioral Benchmarks*\\n```\\n'+\n  'Dimension         | Winners | Losers  | Gap\\n'+\n  '------------------+---------+---------+---------\\n'+\n  'Engagement        | '+String(w.eng).padEnd(7)+' | '+String(l.eng).padEnd(7)+' | '+gap(w.eng,l.eng)+'\\n'+\n  'Meetings (90d)    | '+String(w.mtg90).padEnd(7)+' | '+String(l.mtg90).padEnd(7)+' | '+gap(w.mtg90,l.mtg90)+'\\n'+\n  \n  'Emails Sent       | '+String(w.emailsSent).padEnd(7)+' | '+String(l.emailsSent).padEnd(7)+' | '+gap(w.emailsSent,l.emailsSent)+'\\n'+\n  'Emails Received   | '+String(w.emailsRecv).padEnd(7)+' | '+String(l.emailsRecv).padEnd(7)+' | '+gap(w.emailsRecv,l.emailsRecv)+'\\n'+\n  'People Engaged    | '+String(w.ppl).padEnd(7)+' | '+String(l.ppl).padEnd(7)+' | '+gap(w.ppl,l.ppl)+'\\n'+\n  'Execs Engaged     | '+String(w.execs).padEnd(7)+' | '+String(l.execs).padEnd(7)+' | '+gap(w.execs,l.execs)+'\\n'+\n  'Exec Activities   | '+String(w.execActs).padEnd(7)+' | '+String(l.execActs).padEnd(7)+' | '+gap(w.execActs,l.execActs)+'\\n'+\n  'Meeting Ratio     | '+String(w.mtgRatio+'%').padEnd(7)+' | '+String(l.mtgRatio+'%').padEnd(7)+' | '+gap(w.mtgRatio,l.mtgRatio,'%')+'\\n'+\n  'Exec % of People  | '+String(w.execPct+'%').padEnd(7)+' | '+String(l.execPct+'%').padEnd(7)+' | '+gap(w.execPct,l.execPct,'%')+'\\n'+\n  'Email Response    | '+String(w.respRate).padEnd(7)+' | '+String(l.respRate).padEnd(7)+' | '+gap(w.respRate,l.respRate)+'\\n'+\n  \n  '```\\n\\n'+\n  '*\\ud83c\\udfc6 Winner Profile*\\n'+\n  '\\u2022 Industries: '+w.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+w.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+w.mtg90+' meetings/90d, '+w.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+w.ppl+' people engaged, '+w.execs+' execs, '+w.execPct+'% exec coverage\\n'+\n  '\\u2022 '+w.respRate+' email response rate ('+w.emailsRecv+' received / '+w.emailsSent+' sent)\\n\\n'+\n  '*\\ud83d\\udeab Loser Profile*\\n'+\n  '\\u2022 Industries: '+l.topInd.join(', ')+'\\n'+\n  '\\u2022 Account types: '+l.topTypes.join(', ')+'\\n'+\n  '\\u2022 '+l.mtg90+' meetings/90d, '+l.mtgRatio+'% meeting ratio\\n'+\n  '\\u2022 '+l.ppl+' people engaged, '+l.execs+' execs, '+l.execPct+'% exec coverage\\n'+\n  '\\u2022 '+l.respRate+' email response rate\\n\\n'+\n  '*\\ud83c\\udfaf Key Differentiators* (biggest gaps)\\n';\n\n// Sort dimensions by absolute gap to highlight biggest differences\nconst dims = [\n  {name:'Engagement', gap:Math.abs(w.eng-l.eng), desc: w.eng+' vs '+l.eng},\n  {name:'Meetings (90d)', gap:Math.abs(w.mtg90-l.mtg90), desc: w.mtg90+' vs '+l.mtg90},\n  {name:'Emails Total', gap:Math.abs(w.emails-l.emails), desc: w.emails+' vs '+l.emails},\n  {name:'People Engaged', gap:Math.abs(w.ppl-l.ppl), desc: w.ppl+' vs '+l.ppl},\n  {name:'Execs Engaged', gap:Math.abs(w.execs-l.execs), desc: w.execs+' vs '+l.execs},\n  {name:'Meeting Ratio', gap:Math.abs(w.mtgRatio-l.mtgRatio), desc: w.mtgRatio+'% vs '+l.mtgRatio+'%'},\n  {name:'Email Response', gap:Math.abs(w.respRate-l.respRate), desc: w.respRate+' vs '+l.respRate},\n  {name:'Momentum', gap:Math.abs(w.momentum-l.momentum), desc: w.momentum+'x vs '+l.momentum+'x'}\n].sort((a,b) => b.gap - a.gap);\n\nconst topDiffs = dims.slice(0,4).map((d,i) => (i+1)+'. *'+d.name+'*: '+d.desc+' (winners vs losers)').join('\\n');\n\nconst finalText = text + topDiffs + '\\n\\n_Filter: accounts with engagement > 0 to ensure current behavioral data \\u2022 People.ai + Claude AI_';\n\nreturn [{json:{text: finalText, responseUrl: $('Parse Command').first().json.responseUrl}}];"
       }
     },
     {
-      "id": "d-008",
+      "id": "987ae78a-dedd-4846-9c52-1ad2c201f4ad",
+      "name": "Get Target Accounts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.people.ai/v3/beta/insights/export",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"object\": \"account\", \"columns\": [{\"slug\": \"ootb_account_name\"}, {\"slug\": \"ootb_account_original_owner\"}, {\"slug\": \"ootb_account_engagement_level\"}, {\"slug\": \"ootb_account_industry\"}, {\"slug\": \"ootb_account_count_of_meetings_standard\", \"variation_id\": \"ootb_account_count_of_meetings_standard_last_30_days\"}, {\"slug\": \"ootb_account_people_internal_id\"}], \"filter\": {\"$and\": [{\"attribute\": {\"slug\": \"ootb_account_engagement_level\"}, \"clause\": {\"$lt\": 10}}]}}",
+        "options": {}
+      }
+    },
+    {
+      "id": "4ae889d5-49c6-4a19-8a62-45c7e94f86ac",
+      "name": "Analyze Targets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ],
+      "parameters": {
+        "jsCode": "function parseCSV(csvData) {\n  if (!csvData || !csvData.trim()) return [];\n  function parseLine(line) {\n    const v = []; let q = false, c = '';\n    for (let i = 0; i < line.length; i++) {\n      const ch = line[i];\n      if (ch === '\"') { q = !q; continue; }\n      if (ch === ',' && !q) { v.push(c.trim()); c = ''; continue; }\n      c += ch;\n    }\n    v.push(c.trim());\n    return v;\n  }\n  const lines = csvData.trim().split('\\n');\n  const headers = parseLine(lines[0]);\n  console.log('CSV Headers (' + headers.length + '):', headers.join(' | '));\n  const rows = [];\n  for (let i = 1; i < lines.length; i++) {\n    const v = parseLine(lines[i]);\n    if (v.length < 3) continue;\n    const r = {};\n    headers.forEach((h, idx) => r[h] = v[idx] || '');\n    rows.push(r);\n  }\n  return rows;\n}\nconst n = s => { const x = Number(String(s || '0').replace(/[,$]/g, '')); return isFinite(x) ? x : 0; };\nfunction getRev(a) {\n  // Revenue comes as 3 cols: (amount), (currency), (amount_converted)\n  // Use amount first, fall back to amount_converted\n  return n(a['Annual Revenue (amount)']) || n(a['Annual Revenue (amount_converted)']) || 0;\n}\nfunction fmtRev(v) {\n  if (!v) return '';\n  if (v >= 1000000000) return '$' + (v/1000000000).toFixed(1) + 'B';\n  if (v >= 1000000) return '$' + (v/1000000).toFixed(0) + 'M';\n  if (v >= 1000) return '$' + (v/1000).toFixed(0) + 'K';\n  return '$' + v;\n}\nconst accs = parseCSV($json.data || '');\nif (!accs.length) return [{ json: { text: 'No low-engagement accounts found.', responseUrl: $('Parse Command').first().json.responseUrl } }];\n\nconst sorted = accs.map(a => ({\n  name: a['Account Name'] || '?',\n  owner: a['Account Owner (name)'] || a['Account Owner (id)'] || '?',\n  eng: n(a['Account Engagement Level']),\n  mtg: n(a['Meetings (Last 30 Days)']),\n  rev: getRev(a),\n  industry: a['Industry'] || '',\n  pid: a['People.ai Internal ID'] || ''\n})).sort((a, b) => b.rev - a.rev).slice(0, 15);\n\nfunction fmt(items) {\n  return items.map((a, i) => {\n    const lnk = a.pid ? '<https://app.people.ai/account/' + a.pid + '|' + a.name + '>' : '*' + a.name + '*';\n    return (i+1) + '. ' + lnk + ' (' + a.owner + ')\\n' +\n      '    ' + (a.industry || 'No industry') + (a.rev ? ' | ' + fmtRev(a.rev) : '') +\n      ' | Eng: ' + a.eng + ' | Mtgs: ' + a.mtg;\n  }).join('\\n');\n}\n\nconst date = new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'});\nconst withRev = sorted.filter(a => a.rev > 0);\nconst noRev = sorted.filter(a => !a.rev);\nconst text = '\\ud83d\\ude80 *ICP Target Accounts \\u2014 Unengaged Opportunities*\\n_' + date + '_\\n\\n' +\n  'Accounts with *near-zero engagement* sorted by revenue. These may match your ICP.\\n\\n' +\n  fmt(sorted) + '\\n\\n' +\n  '_' + accs.length + ' accounts with engagement < 10 \\u2022 People.ai + Claude AI_';\n\nreturn [{ json: { text, responseUrl: $('Parse Command').first().json.responseUrl } }];"
+      }
+    },
+    {
+      "id": "3b0ed61a-8008-44ef-9a36-ddd1c7eb9276",
       "name": "Post to Slack",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1740,
-        400
+        2200,
+        600
       ],
       "parameters": {
         "method": "POST",
@@ -176,29 +467,61 @@
     }
   ],
   "connections": {
-    "Slash Command Webhook": {
+    "Webhook": {
       "main": [
         [
           {
-            "node": "Acknowledge",
+            "node": "Parse Command",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Acknowledge": {
+    "Parse Command": {
       "main": [
         [
           {
-            "node": "Extract Command",
+            "node": "Route",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Extract Command": {
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Help Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ack": {
       "main": [
         [
           {
@@ -213,36 +536,121 @@
       "main": [
         [
           {
-            "node": "Get Account Data",
+            "node": "Branch",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Account Data": {
+    "Branch": {
       "main": [
         [
           {
-            "node": "Parse and Filter Accounts",
+            "node": "Get Winners",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Losers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Target Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Digest Data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Parse and Filter Accounts": {
+    "Get Digest Data": {
       "main": [
         [
           {
-            "node": "Format Slack Message",
+            "node": "Analyze Digest",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format Slack Message": {
+    "Analyze Digest": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Winners": {
+      "main": [
+        [
+          {
+            "node": "Merge Calibration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Losers": {
+      "main": [
+        [
+          {
+            "node": "Merge Calibration",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Calibration": {
+      "main": [
+        [
+          {
+            "node": "Analyze Calibration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Calibration": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Target Accounts": {
+      "main": [
+        [
+          {
+            "node": "Analyze Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Targets": {
       "main": [
         [
           {
